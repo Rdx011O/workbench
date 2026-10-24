@@ -1,0 +1,17 @@
+{
+  "version": "1.1.0",
+  "versionCode": 2,
+  "releaseDate": "2026-10-25",
+  "releaseTitle": "Apple Liquid Glass & Tactile Haptics Edition",
+  "changelog": [
+    "🍎 Converted complete interface to Apple Human Interface Guidelines (HIG)",
+    "🪟 Translucent Liquid Glass floating tab bar with dynamic backdrop blur",
+    "📱 Apple Inset Grouped cards and squircle components",
+    "⚡ Tactile haptic feedback across checkboxes, tabs, and buttons",
+    "🔄 In-App OTA Update System: Updates install directly without data loss or uninstalling",
+    "📅 Upgraded Apple Calendar with Month, Week, and Day segmented navigation",
+    "🔍 iOS Scope Bar with instant search filtering for tasks, notes, and events"
+  ],
+  "downloadUrl": "https://github.com/Rdx011O/workbench/releases/latest/download/app-release.apk",
+  "isMandatory": false
+}
