@@ -2,15 +2,15 @@
   "version": "1.1.0",
   "versionCode": 2,
   "releaseDate": "2026-10-25",
-  "releaseTitle": "Apple Liquid Glass & Tactile Haptics Edition",
+  "releaseTitle": "Fresh Modern Pastel UI & Workspaces Edition",
   "changelog": [
-    "🍎 Converted complete interface to Apple Human Interface Guidelines (HIG)",
-    "🪟 Translucent Liquid Glass floating tab bar with dynamic backdrop blur",
-    "📱 Apple Inset Grouped cards and squircle components",
-    "⚡ Tactile haptic feedback across checkboxes, tabs, and buttons",
-    "🔄 In-App OTA Update System: Updates install directly without data loss or uninstalling",
-    "📅 Upgraded Apple Calendar with Month, Week, and Day segmented navigation",
-    "🔍 iOS Scope Bar with instant search filtering for tasks, notes, and events"
+    "✨ Fresh Modern Pastel UI: Transformed entire interface with lavender porcelain backgrounds & refined aesthetics",
+    "🗂️ Workspaces: Switch between Queue, Personal, Work, Studies, and Creative Studio",
+    "🧭 Unified 4-Tab Navigation: Home, Calendar, Tasks & Reminders, Notes & Journals with floating pill bar",
+    "🚨 Live Deadline Alerts: Live countdown timers and direct deadline reminders",
+    "👤 Consolidated Profile: Full user profile, active workspace manager, and comprehensive settings suite",
+    "🛡️ Gateway Update Guard: Shows update page exclusively when an update is available",
+    "⚡ Performance & Bug Fixes: Resolved deprecations and optimized SQLite persistence"
   ],
   "downloadUrl": "https://github.com/Rdx011O/workbench/releases/latest/download/app-release.apk",
   "isMandatory": false

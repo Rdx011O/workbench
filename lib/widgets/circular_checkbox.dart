@@ -53,7 +53,7 @@ class CircularCheckbox extends StatelessWidget {
               boxShadow: value
                   ? [
                       BoxShadow(
-                        color: primaryColor.withOpacity(0.3),
+                        color: primaryColor.withValues(alpha: 0.3),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),

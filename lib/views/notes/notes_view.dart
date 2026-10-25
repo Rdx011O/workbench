@@ -249,7 +249,7 @@ class _NotesViewState extends ConsumerState<NotesView> with SingleTickerProvider
                                     children: [
                                       Text(
                                         DateFormat('EEEE, d MMMM yyyy').format(dateObj),
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
                                           color: BotanicalColors.lightAccent,

@@ -97,7 +97,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
           ),
           CupertinoButton(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            minSize: 34,
+            minimumSize: const Size(34, 34),
             onPressed: _goToToday,
             child: Text(
               'Today',

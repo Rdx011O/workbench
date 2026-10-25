@@ -106,7 +106,7 @@ class RemindersView extends ConsumerWidget {
     return AppleListTile(
       leading: CupertinoButton(
         padding: EdgeInsets.zero,
-        minSize: 44,
+        minimumSize: const Size(44, 44),
         onPressed: () {
           AppleHaptics.mediumImpact();
           ref.read(remindersProvider.notifier).toggleReminderCompletion(reminder.id);
@@ -166,7 +166,7 @@ class RemindersView extends ConsumerWidget {
           if (!reminder.isCompleted)
             CupertinoButton(
               padding: EdgeInsets.zero,
-              minSize: 32,
+              minimumSize: const Size(32, 32),
               onPressed: () {
                 AppleHaptics.selection();
                 ref.read(remindersProvider.notifier).snoozeReminder(reminder.id, const Duration(minutes: 15));

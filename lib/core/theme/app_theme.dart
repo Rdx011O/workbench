@@ -117,7 +117,7 @@ class BotanicalTheme {
           borderSide: const BorderSide(color: BotanicalColors.lightError, width: 1),
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: BotanicalColors.lightTextSecondary.withOpacity(0.7),
+          color: BotanicalColors.lightTextSecondary.withValues(alpha: 0.7),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -251,7 +251,7 @@ class BotanicalTheme {
           borderSide: const BorderSide(color: BotanicalColors.darkError, width: 1),
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: BotanicalColors.darkTextSecondary.withOpacity(0.7),
+          color: BotanicalColors.darkTextSecondary.withValues(alpha: 0.7),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(

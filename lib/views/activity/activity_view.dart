@@ -147,7 +147,7 @@ class ActivityView extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(CupertinoIcons.flame_fill, size: 18, color: BotanicalColors.lightAccent),
+                          const Icon(CupertinoIcons.flame_fill, size: 18, color: BotanicalColors.lightAccent),
                           const SizedBox(width: 8),
                           Text(
                             '${activity.currentStreakDays} Day Streak',
@@ -158,7 +158,7 @@ class ActivityView extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.12),
+                          color: primaryColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -236,7 +236,7 @@ class ActivityView extends ConsumerWidget {
                   return AppleListTile(
                     icon: BotanicalIcons.tasksFilled,
                     iconColor: primaryColor,
-                    iconBackgroundColor: primaryColor.withOpacity(0.12),
+                    iconBackgroundColor: primaryColor.withValues(alpha: 0.12),
                     title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
                     subtitle: t.completedAt != null
                         ? Text(
@@ -258,7 +258,7 @@ class ActivityView extends ConsumerWidget {
                   return AppleListTile(
                     icon: BotanicalIcons.notes,
                     iconColor: const Color(0xFF8A6C48),
-                    iconBackgroundColor: const Color(0xFF8A6C48).withOpacity(0.12),
+                    iconBackgroundColor: const Color(0xFF8A6C48).withValues(alpha: 0.12),
                     title: Text(n.title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
                     subtitle: Text(n.content, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
                     trailing: const Icon(CupertinoIcons.chevron_right, size: 14, color: CupertinoColors.systemGrey2),

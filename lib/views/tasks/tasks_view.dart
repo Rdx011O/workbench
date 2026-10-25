@@ -267,7 +267,7 @@ class _TasksViewState extends ConsumerState<TasksView> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: BotanicalColors.lightError.withOpacity(0.15),
+          color: BotanicalColors.lightError.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(18),
         ),
         child: const Icon(CupertinoIcons.trash, color: BotanicalColors.lightError, size: 22),
@@ -359,7 +359,7 @@ class _TasksViewState extends ConsumerState<TasksView> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: task.priority.color.withOpacity(0.12),
+                            color: task.priority.color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

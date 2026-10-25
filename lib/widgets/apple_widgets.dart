@@ -167,7 +167,7 @@ class AppleListTile extends StatelessWidget {
 
     Widget? leadingWidget = leading;
     if (leadingWidget == null && icon != null) {
-      final bg = iconBackgroundColor ?? (iconColor ?? BotanicalColors.lightPrimary).withOpacity(0.12);
+      final bg = iconBackgroundColor ?? (iconColor ?? BotanicalColors.lightPrimary).withValues(alpha: 0.12);
       final fg = iconColor ?? (isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary);
       leadingWidget = Container(
         width: 34,
@@ -301,7 +301,7 @@ class AppleSearchField extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: hintColor.withOpacity(0.5),
+                  color: hintColor.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

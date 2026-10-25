@@ -6,7 +6,7 @@ import 'core/database/database_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
-import 'widgets/app_scaffold.dart';
+import 'widgets/app_update_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +47,7 @@ class BotanicalPlannerApp extends ConsumerWidget {
       theme: BotanicalTheme.lightTheme,
       darkTheme: BotanicalTheme.darkTheme,
       themeMode: settings.themeMode,
-      home: const AppScaffold(),
+      home: const AppUpdateGate(),
     );
   }
 }

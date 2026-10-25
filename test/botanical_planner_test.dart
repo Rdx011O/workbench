@@ -199,5 +199,27 @@ void main() {
       expect(custom.themeMode, equals(ThemeMode.dark));
       expect(custom.weekStartMonday, isFalse);
     });
+
+    test('Workspace configuration and serialization tests', () {
+      final settings = UserSettings();
+      expect(settings.activeWorkspace, equals('Queue'));
+      expect(settings.workspaces, contains('Queue'));
+
+      final modified = settings.copyWith(
+        activeWorkspace: 'Creative Studio',
+        workspaces: ['Queue', 'Personal', 'Work', 'Creative Studio'],
+      );
+      expect(modified.activeWorkspace, equals('Creative Studio'));
+      expect(modified.workspaces.length, equals(4));
+
+      final prefMap = modified.toPreferencesMap();
+      expect(prefMap['active_workspace'], equals('Creative Studio'));
+      expect(prefMap['workspaces'], contains('Creative Studio'));
+
+      final restored = UserSettings.fromPreferencesMap(prefMap);
+      expect(restored.activeWorkspace, equals('Creative Studio'));
+      expect(restored.workspaces, contains('Queue'));
+      expect(restored.workspaces, contains('Creative Studio'));
+    });
   });
 }

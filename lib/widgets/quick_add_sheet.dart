@@ -89,7 +89,7 @@ class QuickAddSheet extends ConsumerWidget {
                 AppleListTile(
                   icon: BotanicalIcons.tasks,
                   iconColor: primaryColor,
-                  iconBackgroundColor: primaryColor.withOpacity(0.12),
+                  iconBackgroundColor: primaryColor.withValues(alpha: 0.12),
                   title: const Text('New Task', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   subtitle: const Text('Add to daily to-do or schedule for later', style: TextStyle(fontSize: 13)),
                   onTap: () async {
@@ -103,7 +103,7 @@ class QuickAddSheet extends ConsumerWidget {
                 AppleListTile(
                   icon: BotanicalIcons.reminder,
                   iconColor: BotanicalColors.lightAccent,
-                  iconBackgroundColor: BotanicalColors.lightAccent.withOpacity(0.12),
+                  iconBackgroundColor: BotanicalColors.lightAccent.withValues(alpha: 0.12),
                   title: const Text('New Reminder', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   subtitle: const Text('Set a timed prompt or gentle recurring habit', style: TextStyle(fontSize: 13)),
                   onTap: () async {
@@ -117,7 +117,7 @@ class QuickAddSheet extends ConsumerWidget {
                 AppleListTile(
                   icon: BotanicalIcons.calendar,
                   iconColor: const Color(0xFF328A6E),
-                  iconBackgroundColor: const Color(0xFF328A6E).withOpacity(0.12),
+                  iconBackgroundColor: const Color(0xFF328A6E).withValues(alpha: 0.12),
                   title: const Text('New Calendar Event', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   subtitle: const Text('Schedule meeting, appointment, or focus block', style: TextStyle(fontSize: 13)),
                   onTap: () async {
@@ -132,7 +132,7 @@ class QuickAddSheet extends ConsumerWidget {
                   showDivider: false,
                   icon: BotanicalIcons.notes,
                   iconColor: const Color(0xFF8A6C48),
-                  iconBackgroundColor: const Color(0xFF8A6C48).withOpacity(0.12),
+                  iconBackgroundColor: const Color(0xFF8A6C48).withValues(alpha: 0.12),
                   title: const Text('New Note', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   subtitle: const Text('Capture ideas, checklist, or long-form thought', style: TextStyle(fontSize: 13)),
                   onTap: () async {

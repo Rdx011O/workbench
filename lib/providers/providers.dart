@@ -313,11 +313,41 @@ class SettingsNotifier extends StateNotifier<UserSettings> {
     final updated = state.copyWith(userName: name);
     await updateSettings(updated);
   }
+
+  Future<void> setActiveWorkspace(String workspace) async {
+    final updated = state.copyWith(activeWorkspace: workspace);
+    await updateSettings(updated);
+  }
+
+  Future<void> addWorkspace(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || state.workspaces.contains(trimmed)) return;
+    final updatedList = List<String>.from(state.workspaces)..add(trimmed);
+    final updated = state.copyWith(workspaces: updatedList, activeWorkspace: trimmed);
+    await updateSettings(updated);
+  }
+
+  Future<void> deleteWorkspace(String name) async {
+    if (name == 'Queue' || state.workspaces.length <= 1) return;
+    final updatedList = List<String>.from(state.workspaces)..remove(name);
+    final newActive = state.activeWorkspace == name ? 'Queue' : state.activeWorkspace;
+    final updated = state.copyWith(workspaces: updatedList, activeWorkspace: newActive);
+    await updateSettings(updated);
+  }
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, UserSettings>((ref) {
   final db = ref.watch(databaseServiceProvider);
   return SettingsNotifier(db);
+});
+
+// --- Workspace Providers ---
+final activeWorkspaceProvider = Provider<String>((ref) {
+  return ref.watch(settingsProvider).activeWorkspace;
+});
+
+final workspacesProvider = Provider<List<String>>((ref) {
+  return ref.watch(settingsProvider).workspaces;
 });
 
 // --- Selected Date Provider for Calendar & Agenda sync ---

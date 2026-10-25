@@ -1,23 +1,18 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
-import '../core/services/update_service.dart';
 import '../core/theme/colors.dart';
 import '../providers/providers.dart';
-import '../views/activity/activity_view.dart';
 import '../views/calendar/calendar_view.dart';
-import '../views/notes/notes_view.dart';
-import '../views/reminders/reminders_view.dart';
+import '../views/home/home_view.dart';
+import '../views/notes_journal/notes_journal_view.dart';
+import '../views/profile/profile_view.dart';
 import '../views/search/search_view.dart';
-import '../views/settings/settings_view.dart';
-import '../views/tasks/tasks_view.dart';
-import '../views/today/today_view.dart';
+import '../views/tasks_reminders/tasks_reminders_view.dart';
 import 'apple_widgets.dart';
-import 'botanical_icons.dart';
 import 'quick_add_sheet.dart';
-import 'update_dialog.dart';
+import 'workspace_sheet.dart';
 
 class AppScaffold extends ConsumerStatefulWidget {
   const AppScaffold({super.key});
@@ -30,30 +25,13 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    TodayView(),
+    HomeView(),
     CalendarView(),
-    TasksView(),
-    NotesView(),
-    _BrowseHubView(),
+    TasksAndRemindersView(),
+    NotesAndJournalsView(),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForBackgroundUpdate();
-    });
-  }
 
-  Future<void> _checkForBackgroundUpdate() async {
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-
-    final release = await UpdateService.instance.checkForUpdate();
-    if (release != null && mounted) {
-      UpdateDialog.show(context, release);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,16 +39,16 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
     final borderColor = isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder;
     final surfaceColor = isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface;
+    final activeWorkspace = ref.watch(activeWorkspaceProvider);
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 820;
 
     if (isDesktop) {
-      // Desktop / Tablet Companion Interface (macOS / iPadOS Sidebar Layout)
+      // Desktop / Tablet Sidebar Layout
       return Scaffold(
         body: Row(
           children: [
-            // Apple macOS Sidebar
             Container(
               width: 270,
               decoration: BoxDecoration(
@@ -80,109 +58,98 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // App Brand & Date Header
+                  // App Brand & Workspace Header
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 28, 22, 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => WorkspaceSheet.show(context),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Row(
                           children: [
                             Container(
-                              width: 34,
-                              height: 34,
+                              width: 38,
+                              height: 38,
                               decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
+                                color: primaryColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Center(
                                 child: Icon(
-                                  BotanicalIcons.leaf,
+                                  CupertinoIcons.tray_fill,
                                   size: 20,
                                   color: primaryColor,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              'Botanical',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontFamily: 'DM Serif Display',
-                                    fontSize: 22,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    activeWorkspace,
+                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
+                                  const Text(
+                                    'Click to switch',
+                                    style: TextStyle(fontSize: 11, color: CupertinoColors.systemGrey),
+                                  ),
+                                ],
+                              ),
                             ),
+                            const Icon(CupertinoIcons.chevron_up_chevron_down, size: 14, color: CupertinoColors.systemGrey),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSecondarySurface,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            DateFormat('EEEE, d MMMM').format(DateTime.now()),
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 0.2),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const Divider(height: 0.5),
 
-                  // Desktop Navigation List
+                  // Desktop Navigation List (Home, Calendar, Tasks & Reminders, Notes & Journals)
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       children: [
-                        _buildSidebarItem(0, 'Today', BotanicalIcons.lightMode, CupertinoIcons.sun_max_fill),
-                        _buildSidebarItem(1, 'Calendar', BotanicalIcons.calendar, CupertinoIcons.calendar_today),
-                        _buildSidebarItem(2, 'Tasks', BotanicalIcons.tasks, BotanicalIcons.tasksFilled),
-                        _buildSidebarItem(3, 'Notes', BotanicalIcons.notes, BotanicalIcons.notesFilled),
-                        _buildSidebarItem(4, 'Browse Hub', BotanicalIcons.more, BotanicalIcons.moreFilled),
+                        _buildSidebarItem(0, 'Home', CupertinoIcons.house, CupertinoIcons.house_fill),
+                        _buildSidebarItem(1, 'Calendar', CupertinoIcons.calendar, CupertinoIcons.calendar_today),
+                        _buildSidebarItem(2, 'Tasks & Reminders', CupertinoIcons.doc_plaintext, CupertinoIcons.checkmark_square_fill),
+                        _buildSidebarItem(3, 'Notes & Journals', CupertinoIcons.book, CupertinoIcons.book_fill),
                         const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.only(left: 12, bottom: 8),
                           child: Text(
-                            'SHORTCUTS',
+                            'QUICK ACCESS',
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                   letterSpacing: 0.8,
                                 ),
                           ),
                         ),
                         _buildSecondarySidebarItem(
-                          'Reminders & Habits',
-                          BotanicalIcons.reminder,
-                          () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RemindersView())),
-                        ),
-                        _buildSecondarySidebarItem(
-                          'Activity & Rhythm',
-                          BotanicalIcons.activity,
-                          () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityView())),
-                        ),
-                        _buildSecondarySidebarItem(
                           'Search Everything',
-                          BotanicalIcons.search,
+                          CupertinoIcons.search,
                           () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchView())),
                         ),
                         _buildSecondarySidebarItem(
-                          'Settings',
-                          BotanicalIcons.settings,
-                          () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsView())),
+                          'Profile & Settings',
+                          CupertinoIcons.person_crop_circle,
+                          () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileView())),
                         ),
                       ],
                     ),
                   ),
 
-                  // Desktop Quick Create Button
+                  // Quick Create Button
                   Padding(
                     padding: const EdgeInsets.all(18),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        icon: const Icon(BotanicalIcons.add, size: 18),
+                        icon: const Icon(CupertinoIcons.add, size: 18),
                         label: const Text('New Item'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(44, 44),
@@ -199,7 +166,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
               ),
             ),
 
-            // Focused Main Content Area
+            // Content Area
             Expanded(
               child: _pages[_currentIndex],
             ),
@@ -208,125 +175,104 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       );
     }
 
-    // Mobile Navigation (Apple Liquid Glass Floating Tab Bar + Quick Create)
-    final pendingOverdue = ref.watch(tasksProvider).where((t) => t.isOverdue).length;
-
+    // Mobile Navigation (Floating Modern Pill Bar matching Fresh UI Screenshot)
     return Scaffold(
       extendBody: true,
       body: _pages[_currentIndex],
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: AppleGlassContainer(
-            borderRadius: 28,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: Container(
+            height: 72,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? BotanicalColors.darkSurface.withValues(alpha: 0.92)
+                  : BotanicalColors.navBarLight.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(
+                color: isDark ? BotanicalColors.darkBorder : BotanicalColors.navBarBorder,
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildTabItem(0, 'Today', BotanicalIcons.lightMode, CupertinoIcons.sun_max_fill),
-                _buildTabItem(1, 'Calendar', BotanicalIcons.calendar, CupertinoIcons.calendar_today),
-                _buildTabItem(2, 'Tasks', BotanicalIcons.tasks, BotanicalIcons.tasksFilled, badgeCount: pendingOverdue),
-                _buildTabItem(3, 'Notes', BotanicalIcons.notes, BotanicalIcons.notesFilled),
-                _buildTabItem(4, 'Browse', BotanicalIcons.more, BotanicalIcons.moreFilled),
+                _buildNavItem(0, 'home', CupertinoIcons.house, CupertinoIcons.house_fill),
+                _buildNavItem(1, 'calendar', CupertinoIcons.calendar, CupertinoIcons.calendar_today),
+                _buildNavItem(2, 'tasks', CupertinoIcons.doc_plaintext, CupertinoIcons.checkmark_square_fill),
+                _buildNavItem(3, 'notes', CupertinoIcons.book, CupertinoIcons.book_fill),
               ],
             ),
           ),
         ),
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 74),
-        child: FloatingActionButton.small(
-          elevation: 4,
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          shape: const CircleBorder(),
-          tooltip: 'Quick Create',
-          onPressed: () {
-            AppleHaptics.lightImpact();
-            QuickAddSheet.show(context);
-          },
-          child: const Icon(BotanicalIcons.add, size: 22),
-        ),
-      ),
     );
   }
 
-  Widget _buildTabItem(
-    int index,
-    String label,
-    IconData icon,
-    IconData activeIcon, {
-    int badgeCount = 0,
-  }) {
+  Widget _buildNavItem(int index, String label, IconData icon, IconData activeIcon) {
     final isSelected = _currentIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
-    final unselectedColor = isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF8E8E93);
+    final unselectedColor = isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF6E687A);
 
-    return Semantics(
-      selected: isSelected,
-      label: '$label tab',
-      child: InkWell(
-        onTap: () {
-          AppleHaptics.selection();
-          setState(() => _currentIndex = index);
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          constraints: const BoxConstraints(minWidth: 56, minHeight: 46),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedScale(
-                    scale: isSelected ? 1.08 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOutBack,
-                    child: Icon(
-                      isSelected ? activeIcon : icon,
-                      size: 22,
-                      color: isSelected ? primaryColor : unselectedColor,
-                    ),
+    return InkWell(
+      onTap: () {
+        AppleHaptics.selection();
+        setState(() => _currentIndex = index);
+      },
+      borderRadius: BorderRadius.circular(28),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: isSelected
+            ? const EdgeInsets.symmetric(horizontal: 18, vertical: 6)
+            : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.85))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  if (badgeCount > 0)
-                    Positioned(
-                      top: -3,
-                      right: -7,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: BotanicalColors.lightError,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                        child: Text(
-                          '$badgeCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 3),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              size: 24,
+              color: isSelected ? primaryColor : unselectedColor,
+            ),
+            if (isSelected) ...[
+              const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? primaryColor : unselectedColor,
-                  letterSpacing: -0.1,
+                  fontWeight: FontWeight.w700,
+                  color: primaryColor,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -340,7 +286,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: isSelected ? primaryColor.withOpacity(0.12) : Colors.transparent,
+        color: isSelected ? primaryColor.withValues(alpha: 0.12) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
@@ -354,7 +300,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           label,
           style: TextStyle(
             fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected ? primaryColor : null,
           ),
         ),
@@ -377,84 +323,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         AppleHaptics.selection();
         onTap();
       },
-    );
-  }
-}
-
-/// Apple Inset Grouped Browse Hub (Reminders, Activity, Search & Settings)
-class _BrowseHubView extends ConsumerWidget {
-  const _BrowseHubView();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final activity = ref.watch(activitySummaryProvider);
-    final reminders = ref.watch(remindersProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Browse & Settings'),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-          children: [
-            // Section 1: Productivity & Rhythm
-            const AppleSectionHeader('Productivity & Rhythm'),
-            AppleGroupedCard(
-              children: [
-                AppleListTile(
-                  icon: BotanicalIcons.reminder,
-                  iconColor: BotanicalColors.lightAccent,
-                  title: const Text('Reminders & Habits', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  subtitle: Text(
-                    '${reminders.where((r) => !r.isCompleted).length} active reminders · Smart snooze',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RemindersView())),
-                ),
-                AppleListTile(
-                  icon: BotanicalIcons.activity,
-                  iconColor: const Color(0xFF328A6E),
-                  title: const Text('Activity & Consistency', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  subtitle: Text(
-                    '${activity.currentStreakDays} day streak · ${activity.completedTasksToday} done today',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityView())),
-                ),
-              ],
-            ),
-
-            // Section 2: Discovery & Search
-            const AppleSectionHeader('Find & Discover'),
-            AppleGroupedCard(
-              children: [
-                AppleListTile(
-                  icon: BotanicalIcons.search,
-                  iconColor: const Color(0xFF007AFF),
-                  title: const Text('Global Search', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  subtitle: const Text('Instant search across tasks, notes, events, reminders', style: TextStyle(fontSize: 13)),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchView())),
-                ),
-              ],
-            ),
-
-            // Section 3: Preferences
-            const AppleSectionHeader('Preferences'),
-            AppleGroupedCard(
-              children: [
-                AppleListTile(
-                  icon: BotanicalIcons.settings,
-                  iconColor: const Color(0xFF8E8E93),
-                  title: const Text('Settings & Personalization', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  subtitle: const Text('Appearance, calendar week start, notifications, backup', style: TextStyle(fontSize: 13)),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsView())),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

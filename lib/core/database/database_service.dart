@@ -230,12 +230,26 @@ class DatabaseService {
       await db.insert('tasks', task.toDbMap());
     }
 
-    // Seed Reminders
+    // Seed Reminders (Includes exact screenshot items)
     final sampleReminders = [
       Reminder(
         id: _uuid.v4(),
+        title: 'UI system submission',
+        scheduledAt: DateTime(now.year, now.month, now.day, 13, 0), // 1 PM
+        isRecurring: false,
+        createdAt: yesterday,
+      ),
+      Reminder(
+        id: _uuid.v4(),
+        title: 'Assignment submission',
+        scheduledAt: DateTime(now.year, now.month, now.day, 21, 0), // 9 PM
+        isRecurring: false,
+        createdAt: yesterday,
+      ),
+      Reminder(
+        id: _uuid.v4(),
         title: 'Midday posture check & 5 min eye rest',
-        scheduledAt: DateTime(now.year, now.month, now.day, 13, 0),
+        scheduledAt: DateTime(now.year, now.month, now.day, 14, 30),
         isRecurring: true,
         recurrenceRule: 'Daily',
         createdAt: yesterday,

@@ -41,3 +41,9 @@ app.*.map.json
 *.aab
 *.keystore
 !debug.keystore
+.gradle/
+**/android/.gradle/
+**/android/local.properties
+**/android/build/
+build/
+
