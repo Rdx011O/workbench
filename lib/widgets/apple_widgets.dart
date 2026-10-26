@@ -46,14 +46,14 @@ class AppleGlassContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final glassColor = isDark
-        ? Color.fromRGBO(24, 30, 27, opacity)
-        : Color.fromRGBO(255, 255, 255, opacity);
+        ? BotanicalColors.darkSurface.withValues(alpha: opacity)
+        : BotanicalColors.lightSurface.withValues(alpha: opacity);
 
-    final highlightColor = isDark
-        ? const Color(0x2EFFFFFF)
-        : const Color(0x66FFFFFF);
-
-    final borderColor = customBorder ?? Border.all(color: highlightColor, width: 0.75);
+    final borderColor = customBorder ??
+        Border.all(
+          color: (isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder).withValues(alpha: 0.8),
+          width: 0.75,
+        );
 
     Widget content = Container(
       padding: padding,
@@ -253,14 +253,16 @@ class AppleSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fill = isDark ? BotanicalColors.darkSecondarySurface : const Color(0xFFE8E9EC);
-    final hintColor = isDark ? BotanicalColors.darkTextSecondary : CupertinoColors.systemGrey;
+    final fill = isDark ? BotanicalColors.darkInputBackground : BotanicalColors.lightInputBackground;
+    final border = isDark ? BotanicalColors.darkInputBorder : BotanicalColors.lightInputBorder;
+    final hintColor = isDark ? BotanicalColors.darkInputPlaceholder : BotanicalColors.lightInputPlaceholder;
 
     return Container(
       height: 38,
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: 0.75),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(

@@ -274,7 +274,9 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
+        color: task.isCompleted
+            ? (isDark ? BotanicalColors.darkCompletedTask : BotanicalColors.lightCompletedTask)
+            : (isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder,

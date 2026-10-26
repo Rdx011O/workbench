@@ -14,9 +14,9 @@ class BotanicalTheme {
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
         primary: BotanicalColors.lightPrimary,
-        onPrimary: Colors.white,
-        secondary: BotanicalColors.lightAccent,
-        onSecondary: Colors.white,
+        onPrimary: BotanicalColors.lightOnPrimary,
+        secondary: BotanicalColors.lightSecondaryButton,
+        onSecondary: BotanicalColors.lightSecondaryButtonText,
         error: BotanicalColors.lightError,
         onError: Colors.white,
         surface: BotanicalColors.lightSurface,
@@ -54,7 +54,9 @@ class BotanicalTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: BotanicalColors.lightPrimary,
-          foregroundColor: Colors.white,
+          foregroundColor: BotanicalColors.lightOnPrimary,
+          disabledBackgroundColor: BotanicalColors.lightDisabledButton,
+          disabledForegroundColor: BotanicalColors.lightTextSecondary,
           elevation: 0,
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -66,7 +68,8 @@ class BotanicalTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: BotanicalColors.lightTextPrimary,
+          backgroundColor: BotanicalColors.lightSecondaryButton,
+          foregroundColor: BotanicalColors.lightSecondaryButtonText,
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           side: const BorderSide(color: BotanicalColors.lightBorder, width: 0.75),
@@ -89,7 +92,7 @@ class BotanicalTheme {
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: BotanicalColors.lightPrimary,
-        foregroundColor: Colors.white,
+        foregroundColor: BotanicalColors.lightOnPrimary,
         elevation: 3,
         highlightElevation: 4,
         shape: RoundedRectangleBorder(
@@ -98,15 +101,15 @@ class BotanicalTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: BotanicalColors.lightSurface,
+        fillColor: BotanicalColors.lightInputBackground,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: BotanicalColors.lightBorder, width: 0.75),
+          borderSide: const BorderSide(color: BotanicalColors.lightInputBorder, width: 0.75),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: BotanicalColors.lightBorder, width: 0.75),
+          borderSide: const BorderSide(color: BotanicalColors.lightInputBorder, width: 0.75),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -117,7 +120,7 @@ class BotanicalTheme {
           borderSide: const BorderSide(color: BotanicalColors.lightError, width: 1),
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: BotanicalColors.lightTextSecondary.withValues(alpha: 0.7),
+          color: BotanicalColors.lightInputPlaceholder,
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -148,11 +151,11 @@ class BotanicalTheme {
       colorScheme: const ColorScheme(
         brightness: Brightness.dark,
         primary: BotanicalColors.darkPrimary,
-        onPrimary: BotanicalColors.darkBackground,
-        secondary: BotanicalColors.darkAccent,
-        onSecondary: Colors.white,
+        onPrimary: BotanicalColors.darkOnPrimary,
+        secondary: BotanicalColors.darkSecondaryButton,
+        onSecondary: BotanicalColors.darkSecondaryButtonText,
         error: BotanicalColors.darkError,
-        onError: Colors.white,
+        onError: BotanicalColors.darkBackground,
         surface: BotanicalColors.darkSurface,
         onSurface: BotanicalColors.darkTextPrimary,
         outline: BotanicalColors.darkBorder,
@@ -188,7 +191,9 @@ class BotanicalTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: BotanicalColors.darkPrimary,
-          foregroundColor: BotanicalColors.darkBackground,
+          foregroundColor: BotanicalColors.darkOnPrimary,
+          disabledBackgroundColor: BotanicalColors.darkDisabledButton,
+          disabledForegroundColor: BotanicalColors.darkTextSecondary,
           elevation: 0,
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -200,7 +205,8 @@ class BotanicalTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: BotanicalColors.darkTextPrimary,
+          backgroundColor: BotanicalColors.darkSecondaryButton,
+          foregroundColor: BotanicalColors.darkSecondaryButtonText,
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           side: const BorderSide(color: BotanicalColors.darkBorder, width: 0.75),
@@ -223,7 +229,7 @@ class BotanicalTheme {
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: BotanicalColors.darkPrimary,
-        foregroundColor: BotanicalColors.darkBackground,
+        foregroundColor: BotanicalColors.darkOnPrimary,
         elevation: 3,
         highlightElevation: 4,
         shape: RoundedRectangleBorder(
@@ -232,15 +238,15 @@ class BotanicalTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: BotanicalColors.darkSurface,
+        fillColor: BotanicalColors.darkInputBackground,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: BotanicalColors.darkBorder, width: 0.75),
+          borderSide: const BorderSide(color: BotanicalColors.darkInputBorder, width: 0.75),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: BotanicalColors.darkBorder, width: 0.75),
+          borderSide: const BorderSide(color: BotanicalColors.darkInputBorder, width: 0.75),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -251,7 +257,7 @@ class BotanicalTheme {
           borderSide: const BorderSide(color: BotanicalColors.darkError, width: 1),
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: BotanicalColors.darkTextSecondary.withValues(alpha: 0.7),
+          color: BotanicalColors.darkInputPlaceholder,
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(

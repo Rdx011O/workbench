@@ -21,8 +21,9 @@ class CircularCheckbox extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
-    final borderColor = isDark ? BotanicalColors.darkBorder : const Color(0xFFC7CAC2);
-    final surfaceColor = isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSurface;
+    final borderColor = isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder;
+    final surfaceColor = isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface;
+    final checkColor = isDark ? BotanicalColors.darkOnPrimary : BotanicalColors.lightOnPrimary;
 
     return Semantics(
       checked: value,
@@ -64,10 +65,10 @@ class CircularCheckbox extends StatelessWidget {
               scale: value ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutBack,
-              child: const Icon(
+              child: Icon(
                 Icons.check_rounded,
                 size: 14,
-                color: Colors.white,
+                color: checkColor,
               ),
             ),
           ),

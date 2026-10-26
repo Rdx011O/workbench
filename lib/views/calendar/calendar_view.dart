@@ -315,7 +315,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
                         color: isToday
                             ? primaryColor
                             : (isSelected
-                                ? (isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSecondarySurface)
+                                ? (isDark ? BotanicalColors.darkSelectedDate : BotanicalColors.lightSelectedDate)
                                 : Colors.transparent),
                         border: isSelected && !isToday
                             ? Border.all(color: primaryColor, width: 1.5)
@@ -395,7 +395,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
                 color: isToday
                     ? primaryColor
                     : (isSelected
-                        ? (isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSecondarySurface)
+                        ? (isDark ? BotanicalColors.darkSelectedDate : BotanicalColors.lightSelectedDate)
                         : Colors.transparent),
                 borderRadius: BorderRadius.circular(16),
                 border: isSelected && !isToday ? Border.all(color: primaryColor, width: 1.2) : null,

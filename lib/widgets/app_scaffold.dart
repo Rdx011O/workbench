@@ -220,8 +220,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   Widget _buildNavItem(int index, String label, IconData icon, IconData activeIcon) {
     final isSelected = _currentIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
-    final unselectedColor = isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF6E687A);
+    final selectedColor = isDark ? BotanicalColors.darkSelectedNav : BotanicalColors.lightSelectedNav;
+    final unselectedColor = isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary;
 
     return InkWell(
       onTap: () {
@@ -237,14 +237,14 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.85))
+                  ? BotanicalColors.darkSecondarySurface
+                  : BotanicalColors.lightSecondarySurface)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(26),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -258,7 +258,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
             Icon(
               isSelected ? activeIcon : icon,
               size: 24,
-              color: isSelected ? primaryColor : unselectedColor,
+              color: isSelected ? selectedColor : unselectedColor,
             ),
             if (isSelected) ...[
               const SizedBox(height: 2),
@@ -267,7 +267,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: primaryColor,
+                  color: selectedColor,
                   letterSpacing: -0.2,
                 ),
               ),
@@ -281,19 +281,20 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   Widget _buildSidebarItem(int index, String label, IconData icon, IconData activeIcon) {
     final isSelected = _currentIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
+    final selectedColor = isDark ? BotanicalColors.darkSelectedNav : BotanicalColors.lightSelectedNav;
+    final unselectedColor = isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: isSelected ? primaryColor.withValues(alpha: 0.12) : Colors.transparent,
+        color: isSelected ? (isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSecondarySurface) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         dense: true,
         leading: Icon(
           isSelected ? activeIcon : icon,
-          color: isSelected ? primaryColor : (isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF6E7570)),
+          color: isSelected ? selectedColor : unselectedColor,
           size: 20,
         ),
         title: Text(
@@ -301,7 +302,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? primaryColor : null,
+            color: isSelected ? selectedColor : null,
           ),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
