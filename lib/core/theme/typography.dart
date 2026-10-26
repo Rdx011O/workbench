@@ -2,117 +2,143 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'colors.dart';
 
-/// Apple HIG-aligned typography with optical sizes, Dynamic Type scaling,
-/// and distinctive botanical editorial display fonts.
+/// Typography aligned with Queue's design system:
+/// Plus Jakarta Sans for functional interface text,
+/// and Lora selectively for dates and journal headings.
 class BotanicalTypography {
   static TextTheme createTextTheme({required bool isDark}) {
     final primaryTextColor = isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary;
     final secondaryTextColor = isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary;
 
     return TextTheme(
-      // Signature Editorial Display (used for large date displays & header moments)
-      displayLarge: GoogleFonts.dmSerifDisplay(
+      // Editorial Display (Lora for large dates, headings, and journal moments)
+      displayLarge: GoogleFonts.lora(
         fontSize: 34,
-        fontWeight: FontWeight.normal,
+        fontWeight: FontWeight.w600,
         color: primaryTextColor,
         letterSpacing: -0.6,
         height: 1.15,
       ),
-      displayMedium: GoogleFonts.dmSerifDisplay(
+      displayMedium: GoogleFonts.lora(
         fontSize: 28,
-        fontWeight: FontWeight.normal,
+        fontWeight: FontWeight.w600,
         color: primaryTextColor,
         letterSpacing: -0.4,
         height: 1.18,
       ),
-      displaySmall: GoogleFonts.dmSerifDisplay(
+      displaySmall: GoogleFonts.lora(
         fontSize: 22,
-        fontWeight: FontWeight.normal,
+        fontWeight: FontWeight.w600,
         color: primaryTextColor,
         letterSpacing: -0.2,
       ),
 
-      // Apple SF-Style Interface Headings (Inter with Apple tracking)
-      headlineLarge: GoogleFonts.inter(
+      // Plus Jakarta Sans Headings
+      headlineLarge: GoogleFonts.plusJakartaSans(
         fontSize: 26,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w800,
         color: primaryTextColor,
         letterSpacing: -0.5,
       ),
-      headlineMedium: GoogleFonts.inter(
+      headlineMedium: GoogleFonts.plusJakartaSans(
         fontSize: 22,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: primaryTextColor,
         letterSpacing: -0.4,
       ),
-      headlineSmall: GoogleFonts.inter(
+      headlineSmall: GoogleFonts.plusJakartaSans(
         fontSize: 18,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: primaryTextColor,
         letterSpacing: -0.3,
       ),
 
-      // Navigation & Card Section Titles
-      titleLarge: GoogleFonts.inter(
+      // Navigation & Section Titles
+      titleLarge: GoogleFonts.plusJakartaSans(
         fontSize: 20,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: primaryTextColor,
         letterSpacing: -0.2,
       ),
-      titleMedium: GoogleFonts.inter(
+      titleMedium: GoogleFonts.plusJakartaSans(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: primaryTextColor,
         letterSpacing: -0.1,
       ),
-      titleSmall: GoogleFonts.inter(
+      titleSmall: GoogleFonts.plusJakartaSans(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: primaryTextColor,
       ),
 
-      // Apple Body Hierarchy (Default 17pt mobile standard per HIG Lens 1)
-      bodyLarge: GoogleFonts.inter(
-        fontSize: 17,
+      // Functional Body Hierarchy
+      bodyLarge: GoogleFonts.plusJakartaSans(
+        fontSize: 16,
         fontWeight: FontWeight.w400,
         color: primaryTextColor,
         height: 1.45,
-        letterSpacing: -0.2,
+        letterSpacing: -0.1,
       ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 15,
+      bodyMedium: GoogleFonts.plusJakartaSans(
+        fontSize: 14,
         fontWeight: FontWeight.w400,
         color: primaryTextColor,
         height: 1.4,
-        letterSpacing: -0.15,
+        letterSpacing: -0.1,
       ),
-      bodySmall: GoogleFonts.inter(
-        fontSize: 13,
+      bodySmall: GoogleFonts.plusJakartaSans(
+        fontSize: 12,
         fontWeight: FontWeight.w400,
         color: secondaryTextColor,
         height: 1.35,
       ),
 
-      // Metadata, Timestamps, Badges (Tabular figures for clean vertical alignment)
-      labelLarge: GoogleFonts.inter(
+      // Labels, Badges & Timestamps
+      labelLarge: GoogleFonts.plusJakartaSans(
         fontSize: 14,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         color: primaryTextColor,
-        fontFeatures: const [FontFeature.tabularFigures()],
       ),
-      labelMedium: GoogleFonts.inter(
+      labelMedium: GoogleFonts.plusJakartaSans(
         fontSize: 12,
         fontWeight: FontWeight.w500,
         color: secondaryTextColor,
-        fontFeatures: const [FontFeature.tabularFigures()],
       ),
-      labelSmall: GoogleFonts.inter(
+      labelSmall: GoogleFonts.plusJakartaSans(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: secondaryTextColor,
-        letterSpacing: 0.4,
-        fontFeatures: const [FontFeature.tabularFigures()],
+        letterSpacing: 0.3,
       ),
+    );
+  }
+
+  /// Lora font styling for date representations
+  static TextStyle dateStyle({
+    required bool isDark,
+    double fontSize = 15,
+    FontWeight fontWeight = FontWeight.w600,
+  }) {
+    return GoogleFonts.lora(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
+      letterSpacing: -0.2,
+    );
+  }
+
+  /// Lora font styling for journal entry reflection content & headings
+  static TextStyle journalHeadingStyle({
+    required bool isDark,
+    double fontSize = 20,
+    FontWeight fontWeight = FontWeight.w600,
+  }) {
+    return GoogleFonts.lora(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary,
+      letterSpacing: -0.2,
     );
   }
 }

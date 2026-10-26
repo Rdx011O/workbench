@@ -6,6 +6,7 @@ import 'package:botanical_planner/models/event.dart';
 import 'package:botanical_planner/models/note.dart';
 import 'package:botanical_planner/models/journal_entry.dart';
 import 'package:botanical_planner/models/user_settings.dart';
+import 'package:botanical_planner/widgets/user_avatar.dart';
 
 void main() {
   group('Task Model & Priority Tests', () {
@@ -222,4 +223,58 @@ void main() {
       expect(restored.workspaces, contains('Creative Studio'));
     });
   });
+
+  group('Queue Refinement & Feature Tests', () {
+    test('Part F: User Avatar initials generation rules', () {
+      expect(UserAvatar.getInitials('Aaditya Battin'), equals('AB'));
+      expect(UserAvatar.getInitials('Aaditya'), equals('A'));
+      expect(UserAvatar.getInitials('Aaditya Shriniwas Battin'), equals('AB'));
+      expect(UserAvatar.getInitials('  John   Doe  '), equals('JD'));
+      expect(UserAvatar.getInitials(''), equals('Q'));
+    });
+
+    test('Part D: Subtask model serialization and toggle', () {
+      final sub = Subtask(
+        id: 'sub-1',
+        taskId: 't-100',
+        title: 'Draft wireframes',
+        isCompleted: false,
+        sortOrder: 1,
+      );
+
+      final toggled = sub.copyWith(isCompleted: true);
+      expect(toggled.isCompleted, isTrue);
+      expect(toggled.taskId, equals('t-100'));
+
+      final map = toggled.toMap();
+      expect(map['is_completed'], equals(1));
+      expect(map['task_id'], equals('t-100'));
+
+      final restored = Subtask.fromMap(map);
+      expect(restored.id, equals('sub-1'));
+      expect(restored.isCompleted, isTrue);
+      expect(restored.title, equals('Draft wireframes'));
+    });
+
+    test('Part E: Journal exactly 4 supported moods', () {
+      const allowedMoods = ['Happy 😊', 'Neutral 😐', 'Sad 😢', 'Angry 😠'];
+      final entry = JournalEntry(
+        id: 'j-1',
+        prompt: 'Morning reflection',
+        thought: 'Productive start to the sprint.',
+        mood: 'Happy 😊',
+        date: '2026-10-26',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      expect(allowedMoods.contains(entry.mood), isTrue);
+      final map = entry.toMap();
+      final restored = JournalEntry.fromMap(map);
+      expect(restored.mood, equals('Happy 😊'));
+      expect(restored.prompt, equals('Morning reflection'));
+      expect(restored.thought, equals('Productive start to the sprint.'));
+    });
+  });
 }
+

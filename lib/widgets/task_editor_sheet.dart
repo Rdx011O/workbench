@@ -89,6 +89,13 @@ class _TaskEditorSheetState extends State<TaskEditorSheet> {
     });
   }
 
+  void _toggleSubtask(int index) {
+    setState(() {
+      final current = _subtasks[index];
+      _subtasks[index] = current.copyWith(isCompleted: !current.isCompleted);
+    });
+  }
+
   void _removeSubtask(int index) {
     setState(() {
       _subtasks.removeAt(index);
@@ -99,8 +106,9 @@ class _TaskEditorSheetState extends State<TaskEditorSheet> {
     if (!_formKey.currentState!.validate()) return;
 
     final now = DateTime.now();
+    final taskId = widget.initialTask?.id ?? const Uuid().v4();
     final task = Task(
-      id: widget.initialTask?.id ?? const Uuid().v4(),
+      id: taskId,
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
       dueDate: _dueDate,
@@ -114,7 +122,12 @@ class _TaskEditorSheetState extends State<TaskEditorSheet> {
       createdAt: widget.initialTask?.createdAt ?? now,
       updatedAt: now,
       sortOrder: widget.initialTask?.sortOrder ?? 0,
-      subtasks: _subtasks,
+      subtasks: _subtasks.asMap().entries.map((entry) {
+        return entry.value.copyWith(
+          taskId: taskId,
+          sortOrder: entry.key,
+        );
+      }).toList(),
     );
 
     Navigator.of(context).pop(task);
@@ -368,17 +381,44 @@ class _TaskEditorSheetState extends State<TaskEditorSheet> {
                       final subtask = entry.value;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.circle_outlined, size: 14),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(subtask.title, style: Theme.of(context).textTheme.bodyMedium)),
-                            IconButton(
-                              icon: const Icon(BotanicalIcons.close, size: 16),
-                              onPressed: () => _removeSubtask(idx),
-                              visualDensity: VisualDensity.compact,
+                        child: InkWell(
+                          onTap: () => _toggleSubtask(idx),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  subtask.isCompleted
+                                      ? Icons.check_circle_rounded
+                                      : Icons.radio_button_unchecked_rounded,
+                                  size: 18,
+                                  color: subtask.isCompleted ? primaryColor : borderColor,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    subtask.title,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          decoration: subtask.isCompleted
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: subtask.isCompleted
+                                              ? (isDark
+                                                  ? BotanicalColors.darkTextSecondary
+                                                  : BotanicalColors.lightTextSecondary)
+                                              : null,
+                                        ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(BotanicalIcons.close, size: 16),
+                                  onPressed: () => _removeSubtask(idx),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       );
                     }),

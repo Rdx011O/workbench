@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../core/database/database_service.dart';
 import '../core/services/notification_service.dart';
 import '../models/event.dart';
@@ -55,8 +57,40 @@ class TaskNotifier extends StateNotifier<List<Task>> {
       _lastCompletedTask = currentTask;
     }
 
+    // 1. Immediate optimistic UI update
+    final updatedList = List<Task>.from(state);
+    updatedList[taskIndex] = updatedTask;
+    state = updatedList;
+
+    // 2. Persist to SQLite
     await _db.updateTask(updatedTask);
-    await loadTasks();
+  }
+
+  Future<void> toggleSubtaskCompletion(String taskId, String subtaskId) async {
+    final taskIndex = state.indexWhere((t) => t.id == taskId);
+    if (taskIndex == -1) return;
+
+    final currentTask = state[taskIndex];
+    final subtaskIndex = currentTask.subtasks.indexWhere((s) => s.id == subtaskId);
+    if (subtaskIndex == -1) return;
+
+    final currentSubtask = currentTask.subtasks[subtaskIndex];
+    final updatedSubtask = currentSubtask.copyWith(isCompleted: !currentSubtask.isCompleted);
+    final updatedSubtasks = List<Subtask>.from(currentTask.subtasks);
+    updatedSubtasks[subtaskIndex] = updatedSubtask;
+
+    final updatedTask = currentTask.copyWith(
+      subtasks: updatedSubtasks,
+      updatedAt: DateTime.now(),
+    );
+
+    // Immediate optimistic UI update
+    final updatedList = List<Task>.from(state);
+    updatedList[taskIndex] = updatedTask;
+    state = updatedList;
+
+    // Persist to SQLite
+    await _db.updateTask(updatedTask);
   }
 
   Future<bool> undoLastCompletion() async {
@@ -69,14 +103,25 @@ class TaskNotifier extends StateNotifier<List<Task>> {
       completedAt: null,
       updatedAt: DateTime.now(),
     );
+
+    final index = state.indexWhere((t) => t.id == updated.id);
+    if (index != -1) {
+      final updatedList = List<Task>.from(state);
+      updatedList[index] = updated;
+      state = updatedList;
+    }
+
     await _db.updateTask(updated);
-    await loadTasks();
     return true;
   }
 
   Future<void> deleteTask(String taskId) async {
+    final previous = state.firstWhere((t) => t.id == taskId, orElse: () => state.first);
+    _lastCompletedTask = previous;
+
+    // Optimistic delete
+    state = state.where((t) => t.id != taskId).toList();
     await _db.deleteTask(taskId);
-    await loadTasks();
   }
 
   Future<void> reorderTasks(int oldIndex, int newIndex) async {
@@ -104,6 +149,7 @@ final tasksProvider = StateNotifierProvider<TaskNotifier, List<Task>>((ref) {
 class ReminderNotifier extends StateNotifier<List<Reminder>> {
   final DatabaseService _db;
   final NotificationService _notifications;
+  Reminder? _lastCompletedReminder;
 
   ReminderNotifier(this._db, this._notifications) : super([]) {
     loadReminders();
@@ -131,12 +177,45 @@ class ReminderNotifier extends StateNotifier<List<Reminder>> {
     if (index == -1) return;
 
     final current = state[index];
-    final updated = current.copyWith(isCompleted: !current.isCompleted);
+    final newStatus = !current.isCompleted;
+    final updated = current.copyWith(isCompleted: newStatus);
+
+    if (newStatus) {
+      _lastCompletedReminder = current;
+    }
+
+    // 1. Immediate optimistic UI update (Instant feedback on tap)
+    final updatedList = List<Reminder>.from(state);
+    updatedList[index] = updated;
+    state = updatedList;
+
+    // 2. Persist to SQLite
     await _db.updateReminder(updated);
+
+    // 3. Update background notification schedule
     if (updated.isCompleted) {
       await _notifications.cancelNotification(reminderId);
+    } else {
+      await _notifications.scheduleReminderNotification(updated);
     }
-    await loadReminders();
+  }
+
+  Future<bool> undoLastCompletion() async {
+    if (_lastCompletedReminder == null) return false;
+    final reminderToRevert = _lastCompletedReminder!;
+    _lastCompletedReminder = null;
+
+    final updated = reminderToRevert.copyWith(isCompleted: false);
+    final index = state.indexWhere((r) => r.id == updated.id);
+    if (index != -1) {
+      final updatedList = List<Reminder>.from(state);
+      updatedList[index] = updated;
+      state = updatedList;
+    }
+
+    await _db.updateReminder(updated);
+    await _notifications.scheduleReminderNotification(updated);
+    return true;
   }
 
   Future<void> snoozeReminder(String reminderId, Duration duration) async {
@@ -212,6 +291,27 @@ class NoteNotifier extends StateNotifier<List<Note>> {
   Future<void> loadNotes() async {
     final notes = await _db.getNotes();
     state = notes;
+    await ensureLinksNoteExists();
+  }
+
+  Future<void> ensureLinksNoteExists() async {
+    final hasLinks = state.any((n) => n.title.trim().toLowerCase() == 'links');
+    if (!hasLinks) {
+      final initialTableJson = jsonEncode([
+        {'no': 1, 'link': '', 'name': '', 'description': ''}
+      ]);
+      final linksNote = Note(
+        id: const Uuid().v4(),
+        title: 'Links',
+        content: initialTableJson,
+        tags: ['Links', 'Reference'],
+        isPinned: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _db.insertNote(linksNote);
+      state = [linksNote, ...state];
+    }
   }
 
   Future<void> addNote(Note note) async {

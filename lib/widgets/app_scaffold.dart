@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -175,53 +176,72 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       );
     }
 
-    // Mobile Navigation (Floating Modern Pill Bar matching Fresh UI Screenshot)
+    // Check if keyboard is open to avoid obstruction
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
+    // Mobile Navigation (Floating iOS-Inspired Frosted Glass Capsule matching Part C)
     return Scaffold(
       extendBody: true,
       body: _pages[_currentIndex],
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-          child: Container(
-            height: 72,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? BotanicalColors.darkSurface.withValues(alpha: 0.92)
-                  : BotanicalColors.navBarLight.withValues(alpha: 0.94),
-              borderRadius: BorderRadius.circular(36),
-              border: Border.all(
-                color: isDark ? BotanicalColors.darkBorder : BotanicalColors.navBarBorder,
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+      bottomNavigationBar: isKeyboardOpen
+          ? const SizedBox.shrink()
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(36),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: Container(
+                      height: 68,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF292630).withValues(alpha: 0.75)
+                            : const Color(0xFFF8F6FC).withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFFC8B8DF).withValues(alpha: 0.22)
+                              : Colors.white.withValues(alpha: 0.85),
+                          width: 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildNavItem(0, 'Home', CupertinoIcons.house, CupertinoIcons.house_fill),
+                          _buildNavItem(1, 'Calendar', CupertinoIcons.calendar, CupertinoIcons.calendar_today),
+                          _buildNavItem(2, 'Tasks', CupertinoIcons.doc_plaintext, CupertinoIcons.checkmark_square_fill),
+                          _buildNavItem(3, 'Notes', CupertinoIcons.book, CupertinoIcons.book_fill),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, 'home', CupertinoIcons.house, CupertinoIcons.house_fill),
-                _buildNavItem(1, 'calendar', CupertinoIcons.calendar, CupertinoIcons.calendar_today),
-                _buildNavItem(2, 'tasks', CupertinoIcons.doc_plaintext, CupertinoIcons.checkmark_square_fill),
-                _buildNavItem(3, 'notes', CupertinoIcons.book, CupertinoIcons.book_fill),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildNavItem(int index, String label, IconData icon, IconData activeIcon) {
     final isSelected = _currentIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedColor = isDark ? BotanicalColors.darkSelectedNav : BotanicalColors.lightSelectedNav;
-    final unselectedColor = isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary;
+
+    // Exact Part C token definitions
+    final activeIconColor = isDark ? const Color(0xFFC8B8DF) : const Color(0xFF685580);
+    final activeLabelColor = isDark ? const Color(0xFFE3D9EF) : const Color(0xFF554368);
+    final inactiveColor = isDark ? const Color(0xFFB4ACBF) : const Color(0xFF777180);
+    final selectionBg = isDark
+        ? const Color(0xFF403749).withValues(alpha: 0.75)
+        : const Color(0xFFE1D9ED).withValues(alpha: 0.75);
 
     return InkWell(
       onTap: () {
@@ -231,21 +251,26 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       borderRadius: BorderRadius.circular(28),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         padding: isSelected
-            ? const EdgeInsets.symmetric(horizontal: 18, vertical: 6)
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 6)
             : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark
-                  ? BotanicalColors.darkSecondarySurface
-                  : BotanicalColors.lightSecondarySurface)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(26),
+          color: isSelected ? selectionBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          border: isSelected
+              ? Border.all(
+                  color: isDark
+                      ? const Color(0xFFC8B8DF).withValues(alpha: 0.15)
+                      : Colors.white.withValues(alpha: 0.6),
+                  width: 0.8,
+                )
+              : null,
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                    blurRadius: 8,
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                    blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ]
@@ -257,8 +282,8 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           children: [
             Icon(
               isSelected ? activeIcon : icon,
-              size: 24,
-              color: isSelected ? selectedColor : unselectedColor,
+              size: 23,
+              color: isSelected ? activeIconColor : inactiveColor,
             ),
             if (isSelected) ...[
               const SizedBox(height: 2),
@@ -267,7 +292,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: selectedColor,
+                  color: activeLabelColor,
                   letterSpacing: -0.2,
                 ),
               ),
