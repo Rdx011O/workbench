@@ -20,9 +20,10 @@ final notificationServiceProvider = Provider<NotificationService>((ref) => Notif
 // --- Task Notifier & Provider ---
 class TaskNotifier extends StateNotifier<List<Task>> {
   final DatabaseService _db;
+  final NotificationService _notifications;
   Task? _lastCompletedTask;
 
-  TaskNotifier(this._db) : super([]) {
+  TaskNotifier(this._db, this._notifications) : super([]) {
     loadTasks();
   }
 
@@ -34,11 +35,29 @@ class TaskNotifier extends StateNotifier<List<Task>> {
   Future<void> addTask(Task task) async {
     await _db.insertTask(task);
     await loadTasks();
+    await _notifications.showTaskNotification(task, customTitle: 'New Task: ${task.title}');
+    if (task.dueDate != null && (task.isDueToday || task.isOverdue || task.priority == TaskPriority.high)) {
+      await _notifications.showDeadlineAlert(
+        title: '🚨 Deadline Alert: ${task.title}',
+        body: 'Scheduled for ${task.dueDate!.day}/${task.dueDate!.month} · Priority: ${task.priority.label}',
+      );
+    }
   }
 
   Future<void> updateTask(Task task) async {
     await _db.updateTask(task);
     await loadTasks();
+    if (task.isCompleted) {
+      await _notifications.cancelNotification(task.id);
+    } else {
+      await _notifications.showTaskNotification(task);
+      if (task.dueDate != null && (task.isDueToday || task.priority == TaskPriority.high)) {
+        await _notifications.showDeadlineAlert(
+          title: '🚨 Deadline Alert: ${task.title}',
+          body: 'Scheduled for ${task.dueDate!.day}/${task.dueDate!.month} · Priority: ${task.priority.label}',
+        );
+      }
+    }
   }
 
   Future<void> toggleTaskCompletion(String taskId) async {
@@ -64,6 +83,13 @@ class TaskNotifier extends StateNotifier<List<Task>> {
 
     // 2. Persist to SQLite
     await _db.updateTask(updatedTask);
+
+    // 3. Notification update
+    if (updatedTask.isCompleted) {
+      await _notifications.cancelNotification(taskId);
+    } else {
+      await _notifications.showTaskNotification(updatedTask);
+    }
   }
 
   Future<void> toggleSubtaskCompletion(String taskId, String subtaskId) async {
@@ -121,6 +147,7 @@ class TaskNotifier extends StateNotifier<List<Task>> {
 
     // Optimistic delete
     state = state.where((t) => t.id != taskId).toList();
+    await _notifications.cancelNotification(taskId);
     await _db.deleteTask(taskId);
   }
 
@@ -142,7 +169,8 @@ class TaskNotifier extends StateNotifier<List<Task>> {
 
 final tasksProvider = StateNotifierProvider<TaskNotifier, List<Task>>((ref) {
   final db = ref.watch(databaseServiceProvider);
-  return TaskNotifier(db);
+  final notifications = ref.watch(notificationServiceProvider);
+  return TaskNotifier(db, notifications);
 });
 
 // --- Reminder Notifier & Provider ---
@@ -358,11 +386,29 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
 
   Future<void> loadEntries() async {
     final entries = await _db.getJournalEntries();
-    state = entries;
+    // Clean deduplication: keep single most recent entry per date/thought
+    final seen = <String>{};
+    final unique = <JournalEntry>[];
+    for (final e in entries) {
+      final key = '${e.date}_${e.thought.trim().toLowerCase()}';
+      if (!seen.contains(key)) {
+        seen.add(key);
+        unique.add(e);
+      }
+    }
+    state = unique;
   }
 
   Future<void> saveEntry(JournalEntry entry) async {
-    await _db.saveJournalEntry(entry);
+    // Check if an entry for this date already exists to prevent duplicate entries
+    final existing = getEntryForDate(DateTime.tryParse(entry.date) ?? DateTime.now());
+    final entryToSave = existing != null ? entry.copyWith(id: existing.id) : entry;
+    await _db.saveJournalEntry(entryToSave);
+    await loadEntries();
+  }
+
+  Future<void> deleteEntry(String entryId) async {
+    await _db.deleteJournalEntry(entryId);
     await loadEntries();
   }
 
@@ -428,9 +474,9 @@ class SettingsNotifier extends StateNotifier<UserSettings> {
   }
 
   Future<void> deleteWorkspace(String name) async {
-    if (name == 'Queue' || state.workspaces.length <= 1) return;
+    if (name == 'Workbench' || name == 'Queue' || state.workspaces.length <= 1) return;
     final updatedList = List<String>.from(state.workspaces)..remove(name);
-    final newActive = state.activeWorkspace == name ? 'Queue' : state.activeWorkspace;
+    final newActive = state.activeWorkspace == name ? 'Workbench' : state.activeWorkspace;
     final updated = state.copyWith(workspaces: updatedList, activeWorkspace: newActive);
     await updateSettings(updated);
   }

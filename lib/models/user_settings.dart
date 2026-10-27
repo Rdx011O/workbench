@@ -21,8 +21,8 @@ class UserSettings {
     this.notificationsEnabled = true,
     this.defaultReminderTime = const TimeOfDay(hour: 9, minute: 0),
     this.voiceInputEnabled = true,
-    this.activeWorkspace = 'Queue',
-    this.workspaces = const ['Queue', 'Personal', 'Work', 'Studies', 'Creative Studio'],
+    this.activeWorkspace = 'Workbench',
+    this.workspaces = const ['Workbench', 'Personal', 'Work', 'Studies', 'Creative Studio'],
   });
 
   UserSettings copyWith({
@@ -76,8 +76,11 @@ class UserSettings {
 
     final rawWorkspaces = map['workspaces'];
     final parsedWorkspaces = (rawWorkspaces != null && rawWorkspaces.isNotEmpty)
-        ? rawWorkspaces.split('|||').where((s) => s.trim().isNotEmpty).toList()
-        : const ['Queue', 'Personal', 'Work', 'Studies', 'Creative Studio'];
+        ? rawWorkspaces.split('|||').where((s) => s.trim().isNotEmpty).map((w) => w == 'Queue' ? 'Workbench' : w).toList()
+        : const ['Workbench', 'Personal', 'Work', 'Studies', 'Creative Studio'];
+
+    final active = map['active_workspace'];
+    final resolvedActive = (active == null || active == 'Queue' || active.isEmpty) ? 'Workbench' : active;
 
     return UserSettings(
       userName: map['user_name'] ?? 'Aadix',
@@ -91,8 +94,8 @@ class UserSettings {
         minute: int.tryParse(map['reminder_minute'] ?? '0') ?? 0,
       ),
       voiceInputEnabled: (map['voice_enabled'] ?? '1') == '1',
-      activeWorkspace: map['active_workspace'] ?? 'Queue',
-      workspaces: parsedWorkspaces.isEmpty ? const ['Queue'] : parsedWorkspaces,
+      activeWorkspace: resolvedActive,
+      workspaces: parsedWorkspaces.isEmpty ? const ['Workbench'] : parsedWorkspaces,
     );
   }
 }

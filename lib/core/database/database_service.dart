@@ -483,6 +483,11 @@ class DatabaseService {
     await db.insert('journal_entries', entry.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  Future<void> deleteJournalEntry(String id) async {
+    final db = await database;
+    await db.delete('journal_entries', where: 'id = ?', whereArgs: [id]);
+  }
+
   // --- Preferences Methods ---
   Future<UserSettings> getUserSettings() async {
     final db = await database;

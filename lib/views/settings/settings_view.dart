@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/services/update_service.dart';
 import '../../core/theme/colors.dart';
 import '../../models/user_settings.dart';
@@ -32,7 +33,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
     final journal = await db.getJournalEntries();
 
     final exportJson = jsonEncode({
-      'app': 'Queue',
+      'app': 'Workbench',
       'version': '1.1.0',
       'exported_at': DateTime.now().toIso8601String(),
       'settings': settings.toPreferencesMap(),
@@ -91,7 +92,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You are on the latest release of Queue (v1.1.0)'),
+          content: Text('You are on the latest release of Workbench (v1.1.0)'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -203,18 +204,45 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 AppleListTile(
                   icon: CupertinoIcons.bell,
                   iconColor: const Color(0xFFC77D5B),
-                  title: const Text('Push Reminders', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                  subtitle: const Text('Scheduled deadline alerts & reminders', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
+                  title: const Text('Push Reminders & Alerts', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  subtitle: const Text('Scheduled deadline alerts, tasks & reminders', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
                   trailing: CupertinoSwitch(
                     value: settings.notificationsEnabled,
                     activeTrackColor: primaryColor,
-                    onChanged: (val) {
+                    onChanged: (val) async {
                       AppleHaptics.selection();
+                      if (val) {
+                        await NotificationService.instance.requestPermissions();
+                      }
                       ref.read(settingsProvider.notifier).updateSettings(
                             settings.copyWith(notificationsEnabled: val),
                           );
                     },
                   ),
+                ),
+                AppleListTile(
+                  icon: CupertinoIcons.bell_fill,
+                  iconColor: primaryColor,
+                  title: const Text('Send Test Alert Notification', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  subtitle: const Text('Verify banner, sound, and heads-up notification', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
+                  trailing: const Icon(CupertinoIcons.chevron_right, size: 14, color: CupertinoColors.systemGrey3),
+                  onTap: () async {
+                    AppleHaptics.mediumImpact();
+                    await NotificationService.instance.requestPermissions();
+                    await NotificationService.instance.showDeadlineAlert(
+                      title: '🚨 Workbench: Active Deadline Alert',
+                      body: 'Task deadline and alerts are successfully pushing to your device!',
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Test alert notification sent! Check your notification shade.'),
+                          duration: Duration(seconds: 3),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ],
             ),
@@ -267,7 +295,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 AppleListTile(
                   icon: CupertinoIcons.info_circle,
                   iconColor: const Color(0xFF5E8B7E),
-                  title: const Text('Queue Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  title: const Text('Workbench Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                   subtitle: const Text('Release 1.1.0 · Build 2', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
                   trailing: Text(
                     'Up to date',

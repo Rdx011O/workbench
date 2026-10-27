@@ -6,7 +6,7 @@ import 'core/database/database_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
-import 'widgets/app_update_gate.dart';
+import 'views/splash/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,33 +21,33 @@ void main() async {
     ),
   );
 
-  // Initialize SQLite database and pre-populate demo data
+  // Initialize SQLite database and pre-populate initial data
   await DatabaseService.instance.database;
 
-  // Initialize local notifications service
+  // Initialize local notifications service & channels
   await NotificationService.instance.initialize();
 
   runApp(
     const ProviderScope(
-      child: BotanicalPlannerApp(),
+      child: WorkbenchApp(),
     ),
   );
 }
 
-class BotanicalPlannerApp extends ConsumerWidget {
-  const BotanicalPlannerApp({super.key});
+class WorkbenchApp extends ConsumerWidget {
+  const WorkbenchApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
 
     return MaterialApp(
-      title: 'Botanical Ink Planner',
+      title: 'Workbench',
       debugShowCheckedModeBanner: false,
       theme: BotanicalTheme.lightTheme,
       darkTheme: BotanicalTheme.darkTheme,
       themeMode: settings.themeMode,
-      home: const AppUpdateGate(),
+      home: const AnimatedSplashScreen(),
     );
   }
 }

@@ -73,14 +73,18 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: primaryColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Center(
-                                child: Icon(
-                                  CupertinoIcons.tray_fill,
-                                  size: 20,
-                                  color: primaryColor,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.asset(
+                                  'assets/images/app_logo.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    CupertinoIcons.tray_fill,
+                                    size: 20,
+                                    color: primaryColor,
+                                  ),
                                 ),
                               ),
                             ),

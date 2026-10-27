@@ -1,16 +1,14 @@
 {
-  "version": "1.1.0",
-  "versionCode": 2,
-  "releaseDate": "2026-10-25",
-  "releaseTitle": "Fresh Modern Pastel UI & Workspaces Edition",
+  "version": "1.2.0",
+  "versionCode": 3,
+  "releaseDate": "2026-10-28",
+  "releaseTitle": "Workbench Official Release · Animated Splash & In-App Updates",
   "changelog": [
-    "✨ Fresh Modern Pastel UI: Transformed entire interface with lavender porcelain backgrounds & refined aesthetics",
-    "🗂️ Workspaces: Switch between Queue, Personal, Work, Studies, and Creative Studio",
-    "🧭 Unified 4-Tab Navigation: Home, Calendar, Tasks & Reminders, Notes & Journals with floating pill bar",
-    "🚨 Live Deadline Alerts: Live countdown timers and direct deadline reminders",
-    "👤 Consolidated Profile: Full user profile, active workspace manager, and comprehensive settings suite",
-    "🛡️ Gateway Update Guard: Shows update page exclusively when an update is available",
-    "⚡ Performance & Bug Fixes: Resolved deprecations and optimized SQLite persistence"
+    "✨ Brand New Workbench Identity: Updated app icon, branding, and fluid visual hierarchy",
+    "🔔 Real-Time Feature Notifications: Automated instant pushes for active alerts, deadlines, and task creations",
+    "📲 Seamless In-App APK Updater: Downloads and installs directly on-device without browser redirects",
+    "📖 Optimized Journal & Notes: Zero-lag virtualized scrolling, instant search debouncing, and removed duplicate entries",
+    "🎬 Fluid Animated Splash: Dynamic breathing aura, scale entrance, and smooth gateway transitions"
   ],
   "downloadUrl": "https://github.com/Rdx011O/workbench/releases/latest/download/app-release.apk",
   "isMandatory": false

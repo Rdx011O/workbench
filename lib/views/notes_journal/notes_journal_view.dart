@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,23 +26,25 @@ class NotesAndJournalsView extends ConsumerStatefulWidget {
 class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
   late int _selectedTab; // 0: Notes, 1: Journal
 
-  // Journal Search & Mood Filter
+  // Journal Search & Filter
   final TextEditingController _journalSearchController = TextEditingController();
   String _journalQuery = '';
-  String? _selectedMoodFilter; // null: all, or 'happy', 'neutral', 'sad', 'angry'
+  String? _selectedMoodFilter; // null for all, or lowercase mood string
+  Timer? _searchDebounce;
 
-  // Quick Reflection Input
+  // Today's Reflection Input
   final TextEditingController _thoughtController = TextEditingController();
   bool _isListening = false;
   bool _isSpeechAvailable = false;
   JournalMood _quickMood = JournalMood.neutral;
+  bool _isEditingToday = false;
 
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab;
     _initSpeech();
-    _loadExistingThought();
+    _syncTodayThought();
   }
 
   Future<void> _initSpeech() async {
@@ -51,22 +54,38 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
     }
   }
 
-  void _loadExistingThought() {
+  void _syncTodayThought() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final today = DateTime.now();
       final existing = ref.read(journalProvider.notifier).getEntryForDate(today);
-      if (existing != null && _thoughtController.text.isEmpty) {
-        _thoughtController.text = existing.thought;
-        setState(() => _quickMood = JournalMood.fromString(existing.mood));
+      if (existing != null) {
+        if (_thoughtController.text.isEmpty) {
+          _thoughtController.text = existing.thought;
+          setState(() {
+            _quickMood = JournalMood.fromString(existing.mood);
+            _isEditingToday = true;
+          });
+        }
       }
     });
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _journalSearchController.dispose();
     _thoughtController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        setState(() => _journalQuery = query.trim().toLowerCase());
+      }
+    });
   }
 
   void _toggleListening() async {
@@ -77,7 +96,7 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
     } else {
       if (!_isSpeechAvailable) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Speech recognition is not available or enabled.')),
+          const SnackBar(content: Text('Speech recognition is not available on this device.')),
         );
         return;
       }
@@ -92,7 +111,7 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
     }
   }
 
-  Future<void> _saveQuickThought() async {
+  Future<void> _saveTodayThought() async {
     AppleHaptics.selection();
     final text = _thoughtController.text.trim();
     if (text.isEmpty) return;
@@ -113,9 +132,10 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
 
     await ref.read(journalProvider.notifier).saveEntry(entry);
     if (mounted) {
+      setState(() => _isEditingToday = true);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Reflection saved'),
+          content: Text('Reflection saved cleanly'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -136,7 +156,7 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
           thumbColor: isDark ? BotanicalColors.darkSurface : Colors.white,
           children: {
             0: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
               child: Text(
                 'Notes',
                 style: TextStyle(
@@ -147,7 +167,7 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
               ),
             ),
             1: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
               child: Text(
                 'Journal',
                 style: TextStyle(
@@ -181,9 +201,9 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
             )
           else
             IconButton(
-              icon: const Icon(CupertinoIcons.square_pencil_fill, size: 24),
+              icon: const Icon(CupertinoIcons.calendar_badge_plus, size: 24),
               color: primaryColor,
-              tooltip: 'New Journal Entry',
+              tooltip: 'Add Entry for Specific Date',
               onPressed: () async {
                 AppleHaptics.lightImpact();
                 final entry = await JournalEditorSheet.show(context);
@@ -195,10 +215,7 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _selectedTab == 0 ? _buildNotesTab(context) : _buildJournalTab(context),
-      ),
+      body: _selectedTab == 0 ? _buildNotesTab(context) : _buildJournalTab(context),
     );
   }
 
@@ -350,322 +367,384 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
     );
   }
 
-  // --- Journal Tab (Redesigned per Part E, item 18) ---
+  // --- High-Performance, Lag-Free Journal Tab (Deduplicated) ---
   Widget _buildJournalTab(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
     final borderColor = isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder;
     final allEntries = ref.watch(journalProvider);
 
-    // Apply Real-time search query and mood filter
-    final filteredEntries = allEntries.where((entry) {
+    final now = DateTime.now();
+    final todayString =
+        "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    // Filter past entries (excluding today to avoid displaying duplicate items on the same screen)
+    final pastEntries = allEntries.where((entry) {
+      // Don't show today in the history list if it's already shown in the top editor card
+      if (entry.date == todayString) return false;
+
       if (_selectedMoodFilter != null && entry.mood.toLowerCase() != _selectedMoodFilter) {
         return false;
       }
       if (_journalQuery.isNotEmpty) {
-        final q = _journalQuery.toLowerCase();
-        final matchesThought = entry.thought.toLowerCase().contains(q);
-        final matchesPrompt = entry.prompt?.toLowerCase().contains(q) ?? false;
-        final matchesDate = entry.date.toLowerCase().contains(q);
+        final matchesThought = entry.thought.toLowerCase().contains(_journalQuery);
+        final matchesPrompt = entry.prompt?.toLowerCase().contains(_journalQuery) ?? false;
+        final matchesDate = entry.date.toLowerCase().contains(_journalQuery);
         if (!matchesThought && !matchesPrompt && !matchesDate) return false;
       }
       return true;
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
-      children: [
-        // Journal Search Bar (Part E, item 18)
-        Container(
-          height: 40,
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor, width: 0.8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              Icon(CupertinoIcons.search, size: 16, color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _journalSearchController,
-                  onChanged: (val) => setState(() => _journalQuery = val.trim()),
-                  style: const TextStyle(fontSize: 14),
-                  decoration: const InputDecoration(
-                    hintText: 'Search reflections & journal entries...',
-                    hintStyle: TextStyle(fontSize: 13),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              if (_journalQuery.isNotEmpty)
-                IconButton(
-                  icon: const Icon(CupertinoIcons.xmark_circle_fill, size: 16),
-                  padding: EdgeInsets.zero,
-                  onPressed: () {
-                    _journalSearchController.clear();
-                    setState(() => _journalQuery = '');
-                  },
-                ),
-            ],
-          ),
-        ),
-
-        // 4 Mood Filter Choices (Happy, Neutral, Sad, Angry)
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: const Text('All Moods'),
-                  selected: _selectedMoodFilter == null,
-                  selectedColor: primaryColor.withValues(alpha: 0.16),
-                  side: BorderSide(color: _selectedMoodFilter == null ? primaryColor : borderColor),
-                  onSelected: (_) => setState(() => _selectedMoodFilter = null),
-                ),
-              ),
-              ...JournalMood.values.map((mood) {
-                final isSelected = _selectedMoodFilter == mood.label.toLowerCase();
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: FilterChip(
-                    avatar: Text(mood.emoji, style: const TextStyle(fontSize: 14)),
-                    label: Text(mood.label),
-                    selected: isSelected,
-                    selectedColor: primaryColor.withValues(alpha: 0.16),
-                    side: BorderSide(color: isSelected ? primaryColor : borderColor),
-                    onSelected: (_) {
-                      setState(() {
-                        _selectedMoodFilter = isSelected ? null : mood.label.toLowerCase();
-                      });
-                    },
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-
-        // Daily Quick Reflection Card (Calm, personal, writing-focused)
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: borderColor, width: 0.75),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Today’s Reflection',
-                    style: BotanicalTypography.journalHeadingStyle(isDark: isDark, fontSize: 17),
-                  ),
-                  Text(
-                    DateFormat('EEEE, d MMM').format(DateTime.now()),
-                    style: BotanicalTypography.dateStyle(isDark: isDark, fontSize: 12),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 4 Mood Selector for quick reflection
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: JournalMood.values.map((m) {
-                    final isSelected = m == _quickMood;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        avatar: Text(m.emoji, style: const TextStyle(fontSize: 14)),
-                        label: Text(m.label),
-                        selected: isSelected,
-                        selectedColor: primaryColor.withValues(alpha: 0.16),
-                        side: BorderSide(color: isSelected ? primaryColor : borderColor),
-                        onSelected: (_) => setState(() => _quickMood = m),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Input field
-              TextField(
-                controller: _thoughtController,
-                maxLines: 3,
-                style: Theme.of(context).textTheme.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: 'What was your genuine rhythm or reflection today?',
-                  hintStyle: const TextStyle(fontSize: 13),
-                  filled: true,
-                  fillColor: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF7F5FA),
-                  border: OutlineInputBorder(
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Integrated Search & Mood Filter Bar
+                Container(
+                  height: 42,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: borderColor, width: 0.6),
+                    border: Border.all(color: borderColor, width: 0.8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    children: [
+                      Icon(CupertinoIcons.search, size: 16, color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _journalSearchController,
+                          onChanged: _onSearchChanged,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: const InputDecoration(
+                            hintText: 'Search reflections...',
+                            hintStyle: TextStyle(fontSize: 13),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                      if (_journalQuery.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            _journalSearchController.clear();
+                            setState(() => _journalQuery = '');
+                          },
+                          child: const Icon(CupertinoIcons.xmark_circle_fill, size: 16, color: CupertinoColors.systemGrey),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
 
-              // Action buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton.filledTonal(
-                    icon: Icon(_isListening ? CupertinoIcons.stop_fill : CupertinoIcons.mic_fill, size: 18),
-                    color: _isListening ? Colors.red : primaryColor,
-                    tooltip: 'Voice Input',
-                    onPressed: _toggleListening,
-                  ),
-                  Row(
+                // Unified Single Mood Filter Row
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Row(
                     children: [
-                      TextButton.icon(
-                        icon: const Icon(CupertinoIcons.pencil, size: 15),
-                        label: const Text('Full Editor'),
-                        onPressed: () async {
-                          final entry = await JournalEditorSheet.show(context);
-                          if (entry != null) {
-                            ref.read(journalProvider.notifier).saveEntry(entry);
-                          }
-                        },
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: const Text('All Reflections'),
+                          selected: _selectedMoodFilter == null,
+                          selectedColor: primaryColor.withValues(alpha: 0.16),
+                          side: BorderSide(color: _selectedMoodFilter == null ? primaryColor : borderColor),
+                          onSelected: (_) => setState(() => _selectedMoodFilter = null),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        icon: const Icon(CupertinoIcons.checkmark, size: 15),
-                        label: const Text('Save'),
-                        onPressed: _saveQuickThought,
+                      ...JournalMood.values.map((mood) {
+                        final isSelected = _selectedMoodFilter == mood.label.toLowerCase();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: FilterChip(
+                            avatar: Text(mood.emoji, style: const TextStyle(fontSize: 14)),
+                            label: Text(mood.label),
+                            selected: isSelected,
+                            selectedColor: primaryColor.withValues(alpha: 0.16),
+                            side: BorderSide(color: isSelected ? primaryColor : borderColor),
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedMoodFilter = isSelected ? null : mood.label.toLowerCase();
+                              });
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+
+                // Clean Today's Reflection Card (Unified single editor)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: borderColor, width: 0.8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Past Entries List
-        if (filteredEntries.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: borderColor, width: 0.75),
-            ),
-            child: Center(
-              child: Text(
-                _journalQuery.isNotEmpty
-                    ? 'No entries match "$_journalQuery".'
-                    : 'No reflections in this mood yet.',
-                style: const TextStyle(color: CupertinoColors.systemGrey, fontSize: 13),
-              ),
-            ),
-          )
-        else ...[
-          AppleSectionHeader('Reflections (${filteredEntries.length})'),
-          ...filteredEntries.reversed.map((entry) {
-            final moodEnum = JournalMood.fromString(entry.mood);
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: borderColor, width: 0.75),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () async {
-                  AppleHaptics.lightImpact();
-                  final updated = await JournalEditorSheet.show(context, entry: entry);
-                  if (updated != null) {
-                    ref.read(journalProvider.notifier).saveEntry(updated);
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            entry.prompt ?? entry.date,
-                            style: BotanicalTypography.journalHeadingStyle(isDark: isDark, fontSize: 15),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSecondarySurface,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(moodEnum.emoji, style: const TextStyle(fontSize: 12)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  moodEnum.label,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
+                          Row(
+                            children: [
+                              Text(
+                                'Today’s Reflection',
+                                style: BotanicalTypography.journalHeadingStyle(isDark: isDark, fontSize: 16),
+                              ),
+                              if (_isEditingToday) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Saved',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primaryColor),
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
+                          ),
+                          Text(
+                            DateFormat('EEEE, d MMM').format(DateTime.now()),
+                            style: BotanicalTypography.dateStyle(isDark: isDark, fontSize: 12),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        entry.thought,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.4,
-                          color: isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary,
+                      const SizedBox(height: 12),
+
+                      // Mood selector for today
+                      Row(
+                        children: JournalMood.values.map((m) {
+                          final isSelected = m == _quickMood;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              avatar: Text(m.emoji, style: const TextStyle(fontSize: 13)),
+                              label: Text(m.label, style: const TextStyle(fontSize: 12)),
+                              selected: isSelected,
+                              selectedColor: primaryColor.withValues(alpha: 0.16),
+                              side: BorderSide(color: isSelected ? primaryColor : borderColor),
+                              onSelected: (_) => setState(() => _quickMood = m),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Text input
+                      TextField(
+                        controller: _thoughtController,
+                        maxLines: 3,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        decoration: InputDecoration(
+                          hintText: 'What was your genuine rhythm or reflection today?',
+                          hintStyle: const TextStyle(fontSize: 13),
+                          filled: true,
+                          fillColor: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF7F5FA),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: borderColor, width: 0.6),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        entry.date,
-                        style: BotanicalTypography.dateStyle(isDark: isDark, fontSize: 11),
+                      const SizedBox(height: 10),
+
+                      // Actions
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton.filledTonal(
+                            icon: Icon(_isListening ? CupertinoIcons.stop_fill : CupertinoIcons.mic_fill, size: 18),
+                            color: _isListening ? Colors.red : primaryColor,
+                            tooltip: 'Voice Input',
+                            onPressed: _toggleListening,
+                          ),
+                          ElevatedButton.icon(
+                            icon: const Icon(CupertinoIcons.checkmark_alt, size: 16),
+                            label: Text(_isEditingToday ? 'Update Reflection' : 'Save Reflection'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: _saveTodayThought,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+
+                // Section header for Past Reflections
+                AppleSectionHeader('Past Reflections (${pastEntries.length})'),
+              ],
+            ),
+          ),
+        ),
+
+        // Virtualized, Lag-Free Past Entries List
+        if (pastEntries.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Center(
+                child: Text(
+                  _journalQuery.isNotEmpty
+                      ? 'No reflections match "$_journalQuery".'
+                      : 'No past reflections in this category yet.',
+                  style: const TextStyle(color: CupertinoColors.systemGrey, fontSize: 13),
+                ),
               ),
-            );
-          }),
-        ],
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final entry = pastEntries.reversed.toList()[index];
+                  final moodEnum = JournalMood.fromString(entry.mood);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: borderColor, width: 0.75),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () async {
+                        AppleHaptics.lightImpact();
+                        final updated = await JournalEditorSheet.show(context, entry: entry);
+                        if (updated != null) {
+                          ref.read(journalProvider.notifier).saveEntry(updated);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    entry.prompt ?? entry.date,
+                                    style: BotanicalTypography.journalHeadingStyle(isDark: isDark, fontSize: 15),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? BotanicalColors.darkSecondarySurface : BotanicalColors.lightSecondarySurface,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(moodEnum.emoji, style: const TextStyle(fontSize: 12)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            moodEnum.label,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(CupertinoIcons.ellipsis, size: 16),
+                                      onSelected: (val) {
+                                        if (val == 'delete') {
+                                          AppleHaptics.mediumImpact();
+                                          ref.read(journalProvider.notifier).deleteEntry(entry.id);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Reflection removed'),
+                                              duration: Duration(seconds: 2),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      itemBuilder: (_) => [
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(CupertinoIcons.trash, size: 16, color: Colors.red),
+                                              SizedBox(width: 8),
+                                              Text('Delete Entry', style: TextStyle(color: Colors.red, fontSize: 13)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              entry.thought,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.4,
+                                color: isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              entry.date,
+                              style: BotanicalTypography.dateStyle(isDark: isDark, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                childCount: pastEntries.length,
+              ),
+            ),
+          ),
       ],
     );
   }

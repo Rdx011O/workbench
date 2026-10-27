@@ -190,8 +190,8 @@ class WorkspaceSheet extends ConsumerWidget {
                           ),
                           child: Center(
                             child: Icon(
-                              ws == 'Queue'
-                                  ? CupertinoIcons.tray_fill
+                              (ws == 'Workbench' || ws == 'Queue')
+                                  ? CupertinoIcons.briefcase_fill
                                   : CupertinoIcons.folder_fill,
                               size: 19,
                               color: isSelected ? primaryColor : (isDark ? Colors.white54 : Colors.black45),
@@ -211,7 +211,7 @@ class WorkspaceSheet extends ConsumerWidget {
                                   color: isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary,
                                 ),
                               ),
-                              if (ws == 'Queue')
+                              if (ws == 'Workbench' || ws == 'Queue')
                                 Text(
                                   'Default Workspace & Inbox',
                                   style: TextStyle(

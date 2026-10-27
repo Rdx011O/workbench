@@ -203,12 +203,12 @@ void main() {
 
     test('Workspace configuration and serialization tests', () {
       final settings = UserSettings();
-      expect(settings.activeWorkspace, equals('Queue'));
-      expect(settings.workspaces, contains('Queue'));
+      expect(settings.activeWorkspace, equals('Workbench'));
+      expect(settings.workspaces, contains('Workbench'));
 
       final modified = settings.copyWith(
         activeWorkspace: 'Creative Studio',
-        workspaces: ['Queue', 'Personal', 'Work', 'Creative Studio'],
+        workspaces: ['Workbench', 'Personal', 'Work', 'Creative Studio'],
       );
       expect(modified.activeWorkspace, equals('Creative Studio'));
       expect(modified.workspaces.length, equals(4));
@@ -219,7 +219,7 @@ void main() {
 
       final restored = UserSettings.fromPreferencesMap(prefMap);
       expect(restored.activeWorkspace, equals('Creative Studio'));
-      expect(restored.workspaces, contains('Queue'));
+      expect(restored.workspaces, contains('Workbench'));
       expect(restored.workspaces, contains('Creative Studio'));
     });
   });

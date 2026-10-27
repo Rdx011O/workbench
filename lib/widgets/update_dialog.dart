@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../core/services/update_service.dart';
 import '../core/theme/colors.dart';
+import '../views/update/update_screen.dart';
 import 'apple_widgets.dart';
 
 class UpdateDialog extends StatelessWidget {
@@ -170,19 +171,26 @@ class UpdateDialog extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Action Buttons
-            ElevatedButton.icon(
-              icon: const Icon(CupertinoIcons.cloud_download, size: 18),
-              label: const Text('Update Now'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ElevatedButton.icon(
+                icon: const Icon(CupertinoIcons.cloud_download, size: 18),
+                label: const Text('Update In-App Now'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () {
+                  AppleHaptics.mediumImpact();
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => UpdateScreen(
+                        releaseInfo: releaseInfo,
+                        onProceedAnyway: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  );
+                },
               ),
-              onPressed: () async {
-                AppleHaptics.mediumImpact();
-                Navigator.of(context).pop();
-                await UpdateService.instance.launchDownload(releaseInfo.downloadUrl);
-              },
-            ),
 
             if (!releaseInfo.isMandatory) ...[
               const SizedBox(height: 8),

@@ -272,6 +272,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
     final tasks = ref.watch(tasksProvider);
     final reminders = ref.watch(remindersProvider);
 
+    final activeWorkspace = ref.watch(activeWorkspaceProvider);
+    final displayName = (activeWorkspace == 'Queue' || activeWorkspace.isEmpty) ? 'Workbench' : activeWorkspace;
+
     final now = DateTime.now();
     final todayTasks = tasks.where((t) => t.isDueToday || !t.isCompleted).take(4).toList();
     final pendingTasksToday = tasks.where((t) => !t.isCompleted).length;
@@ -308,7 +311,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Queue',
+                                displayName,
                                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                                       fontSize: 34,
                                       fontWeight: FontWeight.w800,

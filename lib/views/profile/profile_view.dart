@@ -209,7 +209,7 @@ class ProfileView extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              ws == 'Queue' ? CupertinoIcons.tray_fill : CupertinoIcons.folder_fill,
+                              (ws == 'Workbench' || ws == 'Queue') ? CupertinoIcons.briefcase_fill : CupertinoIcons.folder_fill,
                               size: 13,
                               color: isSelected
                                   ? Colors.white
