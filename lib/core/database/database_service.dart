@@ -36,9 +36,86 @@ class DatabaseService {
 
     return await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: _createDatabase,
+      onUpgrade: _onUpgradeDatabase,
     );
+  }
+
+  Future<void> _onUpgradeDatabase(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try {
+        await db.execute('ALTER TABLE journal_entries ADD COLUMN tags TEXT DEFAULT ""');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE journal_entries ADD COLUMN is_archived INTEGER DEFAULT 0');
+      } catch (_) {}
+    }
+    await _ensureArchiveSampleData(db);
+  }
+
+  Future<void> _ensureArchiveSampleData(Database db) async {
+    try {
+      final archivedCountResult = await db.rawQuery('SELECT COUNT(*) as count FROM journal_entries WHERE is_archived = 1');
+      final archivedCount = (archivedCountResult.first['count'] as int?) ?? 0;
+      if (archivedCount < 12) {
+        final now = DateTime.now();
+        final needed = 12 - archivedCount;
+        final sampleTitles = [
+          'Morning botanical garden walk',
+          'Tactile design rhythm',
+          'Four Thousand Weeks reflection',
+          'Ceramic studio session',
+          'Deep architecture focus block',
+          'Rainy afternoon tea note',
+          'Sunday workspace declutter',
+          'Rough start to the morning',
+          'Midweek energy check',
+          'New botanical illustration',
+          'Evening stillness walk',
+          'Weekly retrospective',
+        ];
+        final sampleMoods = ['happy', 'super_happy', 'neutral', 'happy', 'super_happy', 'calm', 'happy', 'bad', 'neutral', 'super_happy', 'calm', 'happy'];
+        final sampleTags = ['Nature', 'Design', 'Reading', 'Craft', 'Work', 'Peace', 'Workspace', 'Mindfulness', 'Work', 'Creative', 'Mindfulness', 'Review'];
+
+        for (int i = 0; i < needed; i++) {
+          final idx = i % sampleTitles.length;
+          final entry = JournalEntry(
+            id: _uuid.v4(),
+            date: '2026-10-${(12 + idx).toString().padLeft(2, '0')}',
+            prompt: sampleTitles[idx],
+            thought: 'Archived reflection preserving thoughts, quiet observations, and mindful notes.',
+            mood: sampleMoods[idx],
+            tags: [sampleTags[idx]],
+            isArchived: true,
+            createdAt: now.subtract(Duration(days: idx + 2)),
+            updatedAt: now.subtract(Duration(days: idx + 2)),
+          );
+          await db.insert('journal_entries', entry.toMap());
+        }
+      }
+
+      // Check recent entries
+      final recentCountResult = await db.rawQuery('SELECT COUNT(*) as count FROM journal_entries WHERE is_archived = 0');
+      final recentCount = (recentCountResult.first['count'] as int?) ?? 0;
+      if (recentCount == 0) {
+        final now = DateTime.now();
+        final recentJournal = JournalEntry(
+          id: _uuid.v4(),
+          date: '2026-10-12',
+          prompt: 'Title of journal',
+          thought: 'Quiet reflections and intentional thoughts for this moment.',
+          mood: 'happy',
+          tags: ['Reflection'],
+          isArchived: false,
+          createdAt: now.subtract(const Duration(minutes: 2)),
+          updatedAt: now.subtract(const Duration(minutes: 2)),
+        );
+        await db.insert('journal_entries', recentJournal.toMap());
+      }
+    } catch (e) {
+      debugPrint('Error ensuring archive sample data: $e');
+    }
   }
 
   Future<void> _createDatabase(Database db, int version) async {
@@ -117,11 +194,13 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE journal_entries (
         id TEXT PRIMARY KEY,
-        date TEXT NOT NULL UNIQUE,
+        date TEXT NOT NULL,
         thought TEXT NOT NULL,
         audio_path TEXT,
         mood TEXT NOT NULL,
         prompt TEXT,
+        tags TEXT NOT NULL DEFAULT '',
+        is_archived INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -135,6 +214,7 @@ class DatabaseService {
     ''');
 
     await _seedInitialData(db);
+    await _ensureArchiveSampleData(db);
   }
 
   Future<void> _seedInitialData(Database db) async {
@@ -465,13 +545,25 @@ class DatabaseService {
   // --- Journal Methods ---
   Future<List<JournalEntry>> getJournalEntries() async {
     final db = await database;
-    final maps = await db.query('journal_entries', orderBy: 'date DESC');
+    final maps = await db.query('journal_entries', orderBy: 'created_at DESC');
+    return maps.map((map) => JournalEntry.fromMap(map)).toList();
+  }
+
+  Future<List<JournalEntry>> getArchivedJournalEntries() async {
+    final db = await database;
+    final maps = await db.query('journal_entries', where: 'is_archived = 1', orderBy: 'created_at DESC');
+    return maps.map((map) => JournalEntry.fromMap(map)).toList();
+  }
+
+  Future<List<JournalEntry>> getRecentJournalEntries() async {
+    final db = await database;
+    final maps = await db.query('journal_entries', where: 'is_archived = 0', orderBy: 'created_at DESC');
     return maps.map((map) => JournalEntry.fromMap(map)).toList();
   }
 
   Future<JournalEntry?> getJournalEntryForDate(String date) async {
     final db = await database;
-    final maps = await db.query('journal_entries', where: 'date = ?', whereArgs: [date]);
+    final maps = await db.query('journal_entries', where: 'date = ?', whereArgs: [date], orderBy: 'created_at DESC');
     if (maps.isNotEmpty) {
       return JournalEntry.fromMap(maps.first);
     }
@@ -481,6 +573,11 @@ class DatabaseService {
   Future<void> saveJournalEntry(JournalEntry entry) async {
     final db = await database;
     await db.insert('journal_entries', entry.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> setJournalArchived(String id, bool isArchived) async {
+    final db = await database;
+    await db.update('journal_entries', {'is_archived': isArchived ? 1 : 0}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> deleteJournalEntry(String id) async {
@@ -506,6 +603,24 @@ class DatabaseService {
       batch.insert('preferences', {'key': entry.key, 'value': entry.value}, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
+  }
+
+  Future<String?> getPreference(String key) async {
+    final db = await database;
+    final maps = await db.query('preferences', where: 'key = ?', whereArgs: [key]);
+    if (maps.isNotEmpty) {
+      return maps.first['value'] as String?;
+    }
+    return null;
+  }
+
+  Future<void> setPreference(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'preferences',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   // --- Backup & Export ---

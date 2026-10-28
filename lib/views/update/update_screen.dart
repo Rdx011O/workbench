@@ -20,61 +20,34 @@ class UpdateScreen extends StatefulWidget {
 }
 
 class _UpdateScreenState extends State<UpdateScreen> {
-  bool _isDownloading = false;
-  double _downloadProgress = 0.0;
-  int _receivedBytes = 0;
-  int _totalBytes = 0;
-  String _statusMessage = '';
-  String? _errorMessage;
+  bool _isLaunching = false;
 
-  Future<void> _handleUpdate() async {
+  Future<void> _handleDownload() async {
     AppleHaptics.mediumImpact();
-    setState(() {
-      _isDownloading = true;
-      _downloadProgress = 0.0;
-      _errorMessage = null;
-      _statusMessage = 'Initializing in-app download...';
-    });
+    setState(() => _isLaunching = true);
 
-    await UpdateService.instance.downloadAndInstallApk(
-      downloadUrl: widget.releaseInfo.downloadUrl,
-      onProgress: (progress, received, total) {
-        if (mounted) {
-          setState(() {
-            _downloadProgress = progress;
-            _receivedBytes = received;
-            _totalBytes = total;
-          });
-        }
-      },
-      onStatus: (status) {
-        if (mounted) {
-          setState(() => _statusMessage = status);
-        }
-      },
-      onError: (error) {
-        if (mounted) {
-          setState(() {
-            _isDownloading = false;
-            _errorMessage = error;
-          });
-        }
-      },
-      onCompleted: () {
-        if (mounted) {
-          setState(() {
-            _isDownloading = false;
-            _statusMessage = 'Launching Android Package Installer...';
-          });
-        }
-      },
-    );
+    // Mark dismissed so it will not prompt again on subsequent launches
+    await UpdateService.instance.markUpdateDismissed(widget.releaseInfo.versionCode);
+
+    // Launch external download
+    await UpdateService.instance.launchDownload(widget.releaseInfo.downloadUrl);
+
+    if (mounted) {
+      setState(() => _isLaunching = false);
+      // Automatically proceed into the app so user is not stuck on this screen
+      if (widget.onProceedAnyway != null) {
+        widget.onProceedAnyway!();
+      }
+    }
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0.0 MB';
-    final mb = bytes / (1024 * 1024);
-    return '${mb.toStringAsFixed(1)} MB';
+  Future<void> _handleDismiss() async {
+    AppleHaptics.selection();
+    // Mark dismissed so app does not bother user until next real release
+    await UpdateService.instance.markUpdateDismissed(widget.releaseInfo.versionCode);
+    if (widget.onProceedAnyway != null) {
+      widget.onProceedAnyway!();
+    }
   }
 
   @override
@@ -197,124 +170,6 @@ class _UpdateScreenState extends State<UpdateScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // In-App Download Progress Card (Displayed while updating)
-                    if (_isDownloading || _statusMessage.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: primaryColor.withValues(alpha: 0.35),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: primaryColor.withValues(alpha: 0.1),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (_isDownloading)
-                                      const CupertinoActivityIndicator(radius: 8)
-                                    else
-                                      Icon(CupertinoIcons.checkmark_seal_fill, size: 18, color: primaryColor),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _isDownloading ? 'In-App Updating...' : 'Download Ready',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_totalBytes > 0)
-                                  Text(
-                                    '${(_downloadProgress * 100).toInt()}%',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LinearProgressIndicator(
-                                value: _downloadProgress > 0 ? _downloadProgress : null,
-                                minHeight: 8,
-                                backgroundColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
-                                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    _statusMessage,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (_totalBytes > 0)
-                                  Text(
-                                    '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: CupertinoColors.systemGrey,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                    ],
-
-                    if (_errorMessage != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(CupertinoIcons.exclamationmark_triangle_fill, size: 20, color: Colors.red),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _errorMessage!,
-                                style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                    ],
-
                     // Changelog Section
                     const AppleSectionHeader('What\'s New in this Release', padding: EdgeInsets.only(bottom: 8)),
                     AppleGroupedCard(
@@ -352,7 +207,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                     ),
                     const SizedBox(height: 18),
 
-                    // Safe Update Guarantee Note
+                    // Data Safe Reassurance Card
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
@@ -369,7 +224,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                           const SizedBox(width: 10),
                           const Expanded(
                             child: Text(
-                              'In-App Update: Your existing tasks, notes, workspaces, and reflections remain 100% safe.',
+                              'Safe Update: All your existing tasks, notes, workspaces, and reflections remain 100% intact.',
                               style: TextStyle(fontSize: 12, height: 1.3),
                             ),
                           ),
@@ -380,14 +235,14 @@ class _UpdateScreenState extends State<UpdateScreen> {
                 ),
               ),
 
-              // Bottom Update Action
+              // Bottom Actions
               Column(
                 children: [
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton.icon(
-                      icon: _isDownloading
+                      icon: _isLaunching
                           ? const SizedBox(
                               width: 18,
                               height: 18,
@@ -395,7 +250,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
                             )
                           : const Icon(CupertinoIcons.arrow_down_to_line, size: 20),
                       label: Text(
-                        _isDownloading ? 'Updating In-App...' : 'Update In-App Now',
+                        _isLaunching ? 'Opening Download...' : 'Download Update',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -403,25 +258,20 @@ class _UpdateScreenState extends State<UpdateScreen> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      onPressed: _isDownloading ? null : _handleUpdate,
+                      onPressed: _isLaunching ? null : _handleDownload,
                     ),
                   ),
-                  if (widget.onProceedAnyway != null && !widget.releaseInfo.isMandatory) ...[
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () {
-                        AppleHaptics.selection();
-                        widget.onProceedAnyway!();
-                      },
-                      child: Text(
-                        'Remind me later',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
-                        ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: _handleDismiss,
+                    child: Text(
+                      'Remind me later',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ],

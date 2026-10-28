@@ -36,12 +36,8 @@ class TaskNotifier extends StateNotifier<List<Task>> {
     await _db.insertTask(task);
     await loadTasks();
     await _notifications.showTaskNotification(task, customTitle: 'New Task: ${task.title}');
-    if (task.dueDate != null && (task.isDueToday || task.isOverdue || task.priority == TaskPriority.high)) {
-      await _notifications.showDeadlineAlert(
-        title: '🚨 Deadline Alert: ${task.title}',
-        body: 'Scheduled for ${task.dueDate!.day}/${task.dueDate!.month} · Priority: ${task.priority.label}',
-      );
-    }
+    final settings = await _db.getUserSettings();
+    await _notifications.checkApproachingDeadlines(_db, settings);
   }
 
   Future<void> updateTask(Task task) async {
@@ -51,12 +47,8 @@ class TaskNotifier extends StateNotifier<List<Task>> {
       await _notifications.cancelNotification(task.id);
     } else {
       await _notifications.showTaskNotification(task);
-      if (task.dueDate != null && (task.isDueToday || task.priority == TaskPriority.high)) {
-        await _notifications.showDeadlineAlert(
-          title: '🚨 Deadline Alert: ${task.title}',
-          body: 'Scheduled for ${task.dueDate!.day}/${task.dueDate!.month} · Priority: ${task.priority.label}',
-        );
-      }
+      final settings = await _db.getUserSettings();
+      await _notifications.checkApproachingDeadlines(_db, settings);
     }
   }
 
@@ -192,12 +184,16 @@ class ReminderNotifier extends StateNotifier<List<Reminder>> {
     await _db.insertReminder(reminder);
     await _notifications.scheduleReminderNotification(reminder);
     await loadReminders();
+    final settings = await _db.getUserSettings();
+    await _notifications.checkApproachingDeadlines(_db, settings);
   }
 
   Future<void> updateReminder(Reminder reminder) async {
     await _db.updateReminder(reminder);
     await _notifications.scheduleReminderNotification(reminder);
     await loadReminders();
+    final settings = await _db.getUserSettings();
+    await _notifications.checkApproachingDeadlines(_db, settings);
   }
 
   Future<void> toggleReminderCompletion(String reminderId) async {
@@ -386,24 +382,16 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
 
   Future<void> loadEntries() async {
     final entries = await _db.getJournalEntries();
-    // Clean deduplication: keep single most recent entry per date/thought
-    final seen = <String>{};
-    final unique = <JournalEntry>[];
-    for (final e in entries) {
-      final key = '${e.date}_${e.thought.trim().toLowerCase()}';
-      if (!seen.contains(key)) {
-        seen.add(key);
-        unique.add(e);
-      }
-    }
-    state = unique;
+    state = entries;
   }
 
   Future<void> saveEntry(JournalEntry entry) async {
-    // Check if an entry for this date already exists to prevent duplicate entries
-    final existing = getEntryForDate(DateTime.tryParse(entry.date) ?? DateTime.now());
-    final entryToSave = existing != null ? entry.copyWith(id: existing.id) : entry;
-    await _db.saveJournalEntry(entryToSave);
+    await _db.saveJournalEntry(entry);
+    await loadEntries();
+  }
+
+  Future<void> toggleArchive(String entryId, bool isArchived) async {
+    await _db.setJournalArchived(entryId, isArchived);
     await loadEntries();
   }
 
@@ -413,9 +401,10 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
   }
 
   JournalEntry? getEntryForDate(DateTime date) {
-    final dateString = "${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    final dateString =
+        "${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
     try {
-      return state.firstWhere((e) => e.date == dateString);
+      return state.firstWhere((e) => e.date == dateString && !e.isArchived);
     } catch (_) {
       return null;
     }
@@ -427,22 +416,36 @@ final journalProvider = StateNotifierProvider<JournalNotifier, List<JournalEntry
   return JournalNotifier(db);
 });
 
+final archivedJournalProvider = Provider<List<JournalEntry>>((ref) {
+  final all = ref.watch(journalProvider);
+  return all.where((e) => e.isArchived).toList();
+});
+
+final recentJournalProvider = Provider<List<JournalEntry>>((ref) {
+  final all = ref.watch(journalProvider);
+  return all.where((e) => !e.isArchived).toList();
+});
+
 // --- Settings Notifier & Provider ---
 class SettingsNotifier extends StateNotifier<UserSettings> {
   final DatabaseService _db;
+  final NotificationService _notifications;
 
-  SettingsNotifier(this._db) : super(UserSettings()) {
+  SettingsNotifier(this._db, this._notifications) : super(UserSettings()) {
     loadSettings();
   }
 
   Future<void> loadSettings() async {
     final settings = await _db.getUserSettings();
     state = settings;
+    // Start active deadline watcher when settings are loaded
+    _notifications.startDeadlineWatcher(_db, () => state);
   }
 
   Future<void> updateSettings(UserSettings settings) async {
     state = settings;
     await _db.saveUserSettings(settings);
+    await _notifications.checkApproachingDeadlines(_db, settings);
   }
 
   Future<void> toggleTheme(ThemeMode mode) async {
@@ -484,7 +487,8 @@ class SettingsNotifier extends StateNotifier<UserSettings> {
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, UserSettings>((ref) {
   final db = ref.watch(databaseServiceProvider);
-  return SettingsNotifier(db);
+  final notifications = ref.watch(notificationServiceProvider);
+  return SettingsNotifier(db, notifications);
 });
 
 // --- Workspace Providers ---

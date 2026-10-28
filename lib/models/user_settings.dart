@@ -11,6 +11,8 @@ class UserSettings {
   final bool voiceInputEnabled;
   final String activeWorkspace;
   final List<String> workspaces;
+  final int deadlineLeadHours;
+  final int deadlineLeadMinutes;
 
   UserSettings({
     this.userName = 'Aadix',
@@ -23,7 +25,14 @@ class UserSettings {
     this.voiceInputEnabled = true,
     this.activeWorkspace = 'Workbench',
     this.workspaces = const ['Workbench', 'Personal', 'Work', 'Studies', 'Creative Studio'],
+    this.deadlineLeadHours = 0,
+    this.deadlineLeadMinutes = 30,
   });
+
+  Duration get deadlineLeadDuration =>
+      Duration(hours: deadlineLeadHours, minutes: deadlineLeadMinutes);
+
+  int get totalDeadlineLeadMinutes => (deadlineLeadHours * 60) + deadlineLeadMinutes;
 
   UserSettings copyWith({
     String? userName,
@@ -36,6 +45,8 @@ class UserSettings {
     bool? voiceInputEnabled,
     String? activeWorkspace,
     List<String>? workspaces,
+    int? deadlineLeadHours,
+    int? deadlineLeadMinutes,
   }) {
     return UserSettings(
       userName: userName ?? this.userName,
@@ -48,6 +59,8 @@ class UserSettings {
       voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
       activeWorkspace: activeWorkspace ?? this.activeWorkspace,
       workspaces: workspaces ?? this.workspaces,
+      deadlineLeadHours: deadlineLeadHours ?? this.deadlineLeadHours,
+      deadlineLeadMinutes: deadlineLeadMinutes ?? this.deadlineLeadMinutes,
     );
   }
 
@@ -64,6 +77,8 @@ class UserSettings {
       'voice_enabled': voiceInputEnabled ? '1' : '0',
       'active_workspace': activeWorkspace,
       'workspaces': workspaces.join('|||'),
+      'deadline_lead_hours': deadlineLeadHours.toString(),
+      'deadline_lead_minutes': deadlineLeadMinutes.toString(),
     };
   }
 
@@ -96,6 +111,8 @@ class UserSettings {
       voiceInputEnabled: (map['voice_enabled'] ?? '1') == '1',
       activeWorkspace: resolvedActive,
       workspaces: parsedWorkspaces.isEmpty ? const ['Workbench'] : parsedWorkspaces,
+      deadlineLeadHours: int.tryParse(map['deadline_lead_hours'] ?? '0') ?? 0,
+      deadlineLeadMinutes: int.tryParse(map['deadline_lead_minutes'] ?? '30') ?? 30,
     );
   }
 }

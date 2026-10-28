@@ -28,8 +28,8 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate> {
   Future<void> _checkUpdate() async {
     try {
       final release = await UpdateService.instance
-          .checkForUpdate()
-          .timeout(const Duration(seconds: 3), onTimeout: () => null);
+          .checkForUpdate(force: false)
+          .timeout(const Duration(seconds: 4), onTimeout: () => null);
 
       if (mounted) {
         setState(() {

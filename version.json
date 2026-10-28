@@ -1,14 +1,15 @@
 {
-  "version": "1.2.0",
-  "versionCode": 3,
+  "version": "1.3.0",
+  "versionCode": 4,
   "releaseDate": "2026-10-28",
-  "releaseTitle": "Workbench Official Release · Animated Splash & In-App Updates",
+  "releaseTitle": "Workbench v1.3.0 · Deadline Alerts & Curtain Journal Canvas",
   "changelog": [
-    "✨ Brand New Workbench Identity: Updated app icon, branding, and fluid visual hierarchy",
-    "🔔 Real-Time Feature Notifications: Automated instant pushes for active alerts, deadlines, and task creations",
-    "📲 Seamless In-App APK Updater: Downloads and installs directly on-device without browser redirects",
-    "📖 Optimized Journal & Notes: Zero-lag virtualized scrolling, instant search debouncing, and removed duplicate entries",
-    "🎬 Fluid Animated Splash: Dynamic breathing aura, scale entrance, and smooth gateway transitions"
+    "⏰ Custom Deadline Lead Time: Configure advance notification alerts in hours and minutes before deadlines end",
+    "🔔 Active Deadline Watcher: Continuous background detection for tasks, reminders, and timeline events ending soon",
+    "🎨 Animated Curtain Journal Canvas: Expandable expression canvas featuring page title, context dictation, and tags",
+    "😊 Interactive Mood Slider: Dynamic tactile slider ranging smoothly from Bad (😞) to Super Happy (🤩)",
+    "📁 Preserved Journal Archive: Dedicated archive viewer with search, unarchive, and instant tap-to-inspect",
+    "🐛 Bug Fixes & Architecture: Removed database unique date constraint allowing multiple daily entries, and fixed premature deadline notifications"
   ],
   "downloadUrl": "https://github.com/Rdx011O/workbench/releases/latest/download/app-release.apk",
   "isMandatory": false

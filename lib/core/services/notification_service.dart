@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../database/database_service.dart';
 import '../../models/reminder.dart';
 import '../../models/task.dart';
+import '../../models/user_settings.dart';
 
 class NotificationService {
   static final NotificationService instance = NotificationService._internal();
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
   bool _hasPermission = false;
+  Timer? _deadlineWatcherTimer;
+  final Set<String> _alertedNotificationKeys = {};
 
   NotificationService._internal();
 
@@ -216,6 +221,148 @@ class NotificationService {
     if (!_isInitialized) return;
     final id = entityId.hashCode & 0x7FFFFFFF;
     await _notificationsPlugin.cancel(id);
+    clearAlertKey(entityId);
+  }
+
+  void clearAlertKey(String entityId) {
+    _alertedNotificationKeys.removeWhere((k) => k.startsWith('${entityId}_'));
+  }
+
+  /// Starts the active deadline and timeline watcher
+  void startDeadlineWatcher(DatabaseService db, UserSettings Function() getSettings) {
+    _deadlineWatcherTimer?.cancel();
+    // Immediate initial check
+    checkApproachingDeadlines(db, getSettings());
+    // Periodic heartbeat check every 25 seconds
+    _deadlineWatcherTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      checkApproachingDeadlines(db, getSettings());
+    });
+  }
+
+  /// Checks approaching deadlines for tasks, reminders, and timeline events
+  Future<void> checkApproachingDeadlines(DatabaseService db, UserSettings settings) async {
+    if (!settings.notificationsEnabled) return;
+    if (!_isInitialized) await initialize();
+
+    final now = DateTime.now();
+    final leadDuration = settings.deadlineLeadDuration;
+
+    try {
+      // 1. Check Tasks
+      final tasks = await db.getTasks();
+      for (final task in tasks) {
+        if (task.isCompleted || task.dueDate == null) continue;
+        final deadline = task.deadlineDateTime;
+        if (deadline == null) continue;
+
+        final diff = deadline.difference(now);
+        final leadTimeWindow = leadDuration.inMinutes > 0 ? leadDuration : const Duration(minutes: 15);
+
+        // Alert A: Deadline ending soon within user-configured lead window
+        if (diff > Duration.zero && diff <= leadTimeWindow) {
+          final alertKey = '${task.id}_soon_${deadline.toIso8601String().substring(0, 16)}';
+          if (!_alertedNotificationKeys.contains(alertKey)) {
+            _alertedNotificationKeys.add(alertKey);
+            final remainingStr = _formatRemaining(diff);
+            await showDeadlineAlert(
+              title: '⏳ Deadline Ending Soon: ${task.title}',
+              body: 'Ending in $remainingStr (by ${task.dueTime != null ? task.dueTime!.formatDirect() : "today"}) · ${task.category}',
+              payload: 'task:${task.id}',
+            );
+          }
+        }
+
+        // Alert B: Timeline deadline has arrived / come to an end
+        if (diff <= Duration.zero && diff >= const Duration(hours: -2)) {
+          final alertKey = '${task.id}_due_${deadline.toIso8601String().substring(0, 16)}';
+          if (!_alertedNotificationKeys.contains(alertKey)) {
+            _alertedNotificationKeys.add(alertKey);
+            await showDeadlineAlert(
+              title: '🚨 Deadline Reached: ${task.title}',
+              body: 'The timeline for this task has ended. Tap to complete or reschedule.',
+              payload: 'task:${task.id}',
+            );
+          }
+        }
+      }
+
+      // 2. Check Reminders
+      final reminders = await db.getReminders();
+      for (final reminder in reminders) {
+        if (reminder.isCompleted) continue;
+        final triggerTime = reminder.effectiveDueTime;
+        final diff = triggerTime.difference(now);
+        final leadTimeWindow = leadDuration.inMinutes > 0 ? leadDuration : const Duration(minutes: 15);
+
+        if (diff > Duration.zero && diff <= leadTimeWindow) {
+          final alertKey = '${reminder.id}_soon_${triggerTime.toIso8601String().substring(0, 16)}';
+          if (!_alertedNotificationKeys.contains(alertKey)) {
+            _alertedNotificationKeys.add(alertKey);
+            await showDeadlineAlert(
+              title: '⏰ Reminder Soon: ${reminder.title}',
+              body: 'Scheduled in ${_formatRemaining(diff)}',
+              payload: 'reminder:${reminder.id}',
+            );
+          }
+        }
+
+        if (diff <= Duration.zero && diff >= const Duration(minutes: -15)) {
+          final alertKey = '${reminder.id}_due_${triggerTime.toIso8601String().substring(0, 16)}';
+          if (!_alertedNotificationKeys.contains(alertKey)) {
+            _alertedNotificationKeys.add(alertKey);
+            await showDeadlineAlert(
+              title: '⏰ Reminder: ${reminder.title}',
+              body: 'Scheduled time reached right now.',
+              payload: 'reminder:${reminder.id}',
+            );
+          }
+        }
+      }
+
+      // 3. Check Calendar Events
+      final events = await db.getEvents();
+      for (final event in events) {
+        final diff = event.endTime.difference(now);
+        final leadTimeWindow = leadDuration.inMinutes > 0 ? leadDuration : const Duration(minutes: 15);
+
+        if (diff > Duration.zero && diff <= leadTimeWindow) {
+          final alertKey = '${event.id}_soon_${event.endTime.toIso8601String().substring(0, 16)}';
+          if (!_alertedNotificationKeys.contains(alertKey)) {
+            _alertedNotificationKeys.add(alertKey);
+            await showDeadlineAlert(
+              title: '📅 Event Finishing Soon: ${event.title}',
+              body: 'Ends in ${_formatRemaining(diff)} · ${event.location ?? "Calendar"}',
+              payload: 'event:${event.id}',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error running deadline watcher: $e');
+    }
+  }
+
+  /// Sends a simulated test deadline notification reflecting custom user lead time
+  Future<void> triggerTestDeadlineAlert({int leadHours = 0, int leadMinutes = 30}) async {
+    final leadText = leadHours > 0
+        ? (leadMinutes > 0 ? '$leadHours hr $leadMinutes min' : '$leadHours hr')
+        : '$leadMinutes min';
+
+    await showDeadlineAlert(
+      title: '⏳ Deadline Ending Soon: Project Review (Sample)',
+      body: 'You are set to be notified $leadText earlier before deadlines end. Alerts are active!',
+    );
+  }
+
+  String _formatRemaining(Duration diff) {
+    if (diff.inHours > 0) {
+      final mins = diff.inMinutes % 60;
+      return mins > 0 ? '${diff.inHours}h ${mins}m' : '${diff.inHours}h';
+    }
+    if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}m';
+    }
+    return '${diff.inSeconds}s';
   }
 
   Future<void> showQuickNotification(String title, String body) async {

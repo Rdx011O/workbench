@@ -1,11 +1,10 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../database/database_service.dart';
 
 class AppReleaseInfo {
   final String version;
@@ -50,8 +49,6 @@ class UpdateService {
   UpdateService._();
   static final UpdateService instance = UpdateService._();
 
-  static const MethodChannel _installerChannel = MethodChannel('com.workbench.app/installer');
-
   // Remote GitHub repository raw config endpoints
   static String updateCheckUrl = 'https://raw.githubusercontent.com/Rdx011O/workbench/main/version.json';
   static String fallbackUpdateCheckUrl = 'https://raw.githubusercontent.com/Rdx011O/workbench/main/botanical_planner/version.json';
@@ -61,14 +58,16 @@ class UpdateService {
   }
 
   /// Checks remote GitHub endpoint for new releases.
-  /// Compares both versionCode and semantic versioning (major.minor.patch).
-  Future<AppReleaseInfo?> checkForUpdate({String? customUrl}) async {
+  /// When [force] is false (e.g. startup / splash), it respects user dismissal
+  /// and only shows the update screen ONCE. It will never bother the user again
+  /// until a genuinely new update version is published.
+  Future<AppReleaseInfo?> checkForUpdate({bool force = false, String? customUrl}) async {
     try {
       final targetUrl = customUrl ?? updateCheckUrl;
       final uri = Uri.parse(targetUrl);
 
       final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
+      client.connectionTimeout = const Duration(seconds: 8);
 
       final request = await client.getUrl(uri);
       final response = await request.close();
@@ -80,121 +79,46 @@ class UpdateService {
 
         final packageInfo = await getPackageInfo();
         final currentBuildNumber = int.tryParse(packageInfo.buildNumber) ?? 1;
-        final currentVersion = packageInfo.version;
 
-        if (remoteRelease.versionCode > currentBuildNumber ||
-            _isRemoteVersionHigher(remoteRelease.version, currentVersion)) {
-          return remoteRelease;
+        // If the current app build is already >= remote version code, no update needed!
+        if (currentBuildNumber >= remoteRelease.versionCode) {
+          return null;
         }
-        return null;
+
+        // Check if user already dismissed or acknowledged this version
+        if (!force) {
+          final dismissedCodeStr = await DatabaseService.instance.getPreference('dismissed_update_version_code');
+          final dismissedCode = int.tryParse(dismissedCodeStr ?? '0') ?? 0;
+          if (dismissedCode >= remoteRelease.versionCode) {
+            // Already shown once to the user; do not bother them on startup!
+            return null;
+          }
+        }
+
+        return remoteRelease;
       } else if (customUrl == null && targetUrl != fallbackUpdateCheckUrl) {
-        return await checkForUpdate(customUrl: fallbackUpdateCheckUrl);
+        return await checkForUpdate(force: force, customUrl: fallbackUpdateCheckUrl);
       }
     } catch (e) {
       debugPrint('Update check error: $e');
       if (customUrl == null) {
-        return await checkForUpdate(customUrl: fallbackUpdateCheckUrl);
+        return await checkForUpdate(force: force, customUrl: fallbackUpdateCheckUrl);
       }
     }
     return null;
   }
 
-  /// Semantic version comparison (returns true if remote > current)
-  bool _isRemoteVersionHigher(String remote, String current) {
+  /// Records that the user has seen/acknowledged this update so it never blocks or bothers them again
+  Future<void> markUpdateDismissed(int versionCode) async {
     try {
-      final remoteParts = remote.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final currentParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-
-      for (int i = 0; i < 3; i++) {
-        final r = i < remoteParts.length ? remoteParts[i] : 0;
-        final c = i < currentParts.length ? currentParts[i] : 0;
-        if (r > c) return true;
-        if (r < c) return false;
-      }
-    } catch (_) {}
-    return false;
-  }
-
-  /// Downloads the APK file entirely within the app (no redirecting to GitHub web pages)
-  /// and automatically invokes the native Android Package Installer.
-  Future<void> downloadAndInstallApk({
-    required String downloadUrl,
-    required void Function(double progress, int receivedBytes, int totalBytes) onProgress,
-    required void Function(String statusMessage) onStatus,
-    required void Function(String errorMessage) onError,
-    required VoidCallback onCompleted,
-  }) async {
-    if (downloadUrl.isEmpty) {
-      onError('Download URL is empty.');
-      return;
-    }
-
-    try {
-      onStatus('Connecting to secure download server...');
-      final uri = Uri.parse(downloadUrl);
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 25);
-
-      final request = await client.getUrl(uri);
-      request.followRedirects = true;
-      request.maxRedirects = 5;
-
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        onError('Server responded with HTTP ${response.statusCode}');
-        return;
-      }
-
-      final contentLength = response.contentLength;
-      onStatus('Downloading update package...');
-
-      // Save APK in app temporary / cache directory
-      final tempDir = await getTemporaryDirectory();
-      final apkFile = File('${tempDir.path}/workbench_update.apk');
-      if (await apkFile.exists()) {
-        await apkFile.delete();
-      }
-
-      final sink = apkFile.openWrite();
-      int receivedBytes = 0;
-
-      await for (final chunk in response) {
-        receivedBytes += chunk.length;
-        sink.add(chunk);
-
-        final progress = contentLength > 0 ? (receivedBytes / contentLength) : 0.0;
-        onProgress(progress.clamp(0.0, 1.0), receivedBytes, contentLength);
-      }
-
-      await sink.flush();
-      await sink.close();
-
-      onStatus('Verifying package integrity...');
-      if (!await apkFile.exists() || await apkFile.length() == 0) {
-        onError('Downloaded package is empty or corrupted.');
-        return;
-      }
-
-      onStatus('Starting native installer...');
-      onCompleted();
-
-      // Trigger native in-app installation
-      if (Platform.isAndroid) {
-        await _installerChannel.invokeMethod('installApk', {
-          'filePath': apkFile.path,
-        });
-      } else {
-        // Fallback for desktop testing
-        await launchUrl(Uri.file(apkFile.path), mode: LaunchMode.externalApplication);
-      }
+      await DatabaseService.instance.setPreference('dismissed_update_version_code', '$versionCode');
     } catch (e) {
-      debugPrint('In-app update download error: $e');
-      onError('Failed to download update: ${e.toString()}');
+      debugPrint('Error storing dismissed update version: $e');
     }
   }
 
-  /// External browser fallback if desired
-  Future<bool> launchDownloadExternal(String downloadUrl) async {
+  /// Standard external download launcher (opens release download in browser)
+  Future<bool> launchDownload(String downloadUrl) async {
     if (downloadUrl.isEmpty) return false;
     final uri = Uri.parse(downloadUrl);
     return await launchUrl(uri, mode: LaunchMode.externalApplication);

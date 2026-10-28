@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../core/services/update_service.dart';
 import '../core/theme/colors.dart';
-import '../views/update/update_screen.dart';
 import 'apple_widgets.dart';
 
 class UpdateDialog extends StatelessWidget {
@@ -173,31 +172,26 @@ class UpdateDialog extends StatelessWidget {
             // Action Buttons
               ElevatedButton.icon(
                 icon: const Icon(CupertinoIcons.cloud_download, size: 18),
-                label: const Text('Update In-App Now'),
+                label: const Text('Update Now'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   AppleHaptics.mediumImpact();
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => UpdateScreen(
-                        releaseInfo: releaseInfo,
-                        onProceedAnyway: () => Navigator.of(context).pop(),
-                      ),
-                    ),
-                  );
+                  await UpdateService.instance.markUpdateDismissed(releaseInfo.versionCode);
+                  if (context.mounted) Navigator.of(context).pop();
+                  await UpdateService.instance.launchDownload(releaseInfo.downloadUrl);
                 },
               ),
 
             if (!releaseInfo.isMandatory) ...[
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () {
+                onPressed: () async {
                   AppleHaptics.selection();
-                  Navigator.of(context).pop();
+                  await UpdateService.instance.markUpdateDismissed(releaseInfo.versionCode);
+                  if (context.mounted) Navigator.of(context).pop();
                 },
                 child: const Text('Remind Me Later'),
               ),

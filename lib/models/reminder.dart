@@ -20,6 +20,7 @@ class Reminder {
   });
 
   DateTime get effectiveDueTime => snoozedUntil ?? scheduledAt;
+  DateTime get deadlineDateTime => effectiveDueTime;
 
   bool get isDueToday {
     final effectiveTime = snoozedUntil ?? scheduledAt;

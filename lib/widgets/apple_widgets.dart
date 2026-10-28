@@ -18,6 +18,18 @@ class AppleHaptics {
   static void mediumImpact() {
     HapticFeedback.mediumImpact();
   }
+
+  static void heavyImpact() {
+    HapticFeedback.heavyImpact();
+  }
+
+  static void notificationSuccess() {
+    HapticFeedback.mediumImpact();
+  }
+
+  static void notificationError() {
+    HapticFeedback.heavyImpact();
+  }
 }
 
 /// Floating Liquid Glass container following Apple HIG (Materials & Liquid Glass)

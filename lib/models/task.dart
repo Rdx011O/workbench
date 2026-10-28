@@ -115,6 +115,17 @@ class Task {
     this.subtasks = const [],
   });
 
+  DateTime? get deadlineDateTime {
+    if (dueDate == null) return null;
+    return DateTime(
+      dueDate!.year,
+      dueDate!.month,
+      dueDate!.day,
+      dueTime?.hour ?? 23,
+      dueTime?.minute ?? 59,
+    );
+  }
+
   bool get isOverdue {
     if (isCompleted || dueDate == null) return false;
     final now = DateTime.now();
