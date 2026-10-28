@@ -2,11 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/database/database_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/theme/colors.dart';
 import '../../providers/providers.dart';
 import '../../widgets/apple_widgets.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/workspace_sheet.dart';
+import '../auth/login_screen.dart';
 import '../settings/settings_view.dart';
 
 class ProfileView extends ConsumerWidget {
@@ -33,9 +36,10 @@ class ProfileView extends ConsumerWidget {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final newName = controller.text.trim();
                 if (newName.isNotEmpty) {
+                  await AuthService.instance.updateUsername(DatabaseService.instance, newName);
                   ref.read(settingsProvider.notifier).updateUserName(newName);
                 }
                 Navigator.of(ctx).pop();
@@ -48,6 +52,72 @@ class ProfileView extends ConsumerWidget {
     );
   }
 
+  void _showLinkGoogleDialog(BuildContext context) {
+    final emailCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(CupertinoIcons.globe, color: Colors.blue, size: 20),
+            SizedBox(width: 8),
+            Text('Connect Google Account'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Link your Google account to automatically synchronize calendar and backup credentials.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Google Email',
+                hintText: 'you@gmail.com',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailCtrl.text.trim();
+              if (email.isEmpty) return;
+              Navigator.of(ctx).pop();
+              final current = AuthService.instance.currentUser;
+              if (current != null) {
+                final updated = AuthUser(
+                  id: current.id,
+                  email: current.email,
+                  username: current.username,
+                  googleEmail: email,
+                  isGoogleLinked: true,
+                  createdAt: current.createdAt,
+                );
+                await DatabaseService.instance.updateAuthUser(updated);
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Google account linked successfully!'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('Connect'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -57,6 +127,12 @@ class ProfileView extends ConsumerWidget {
     final workspaces = ref.watch(workspacesProvider);
     final activity = ref.watch(activitySummaryProvider);
     final notes = ref.watch(notesProvider);
+
+    final authUser = AuthService.instance.currentUser;
+    final displayName = (authUser?.username.isNotEmpty == true) ? authUser!.username : settings.userName;
+    final displayEmail = (authUser?.email.isNotEmpty == true)
+        ? authUser!.email
+        : '${displayName.toLowerCase().replaceAll(' ', '')}@queue.local';
 
     return Scaffold(
       appBar: AppBar(
@@ -102,7 +178,7 @@ class ProfileView extends ConsumerWidget {
                 children: [
                   // Avatar with derived initials
                   UserAvatar(
-                    name: settings.userName,
+                    name: displayName,
                     size: 64,
                   ),
                   const SizedBox(width: 16),
@@ -111,19 +187,47 @@ class ProfileView extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          settings.userName,
+                          displayName,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 20,
                               ),
                         ),
                         const SizedBox(height: 3),
-                        Text(
-                          '${settings.userName.toLowerCase().replaceAll(' ', '')}@queue.local',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                displayEmail,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary,
+                                ),
+                              ),
+                            ),
+                            if (authUser?.isGoogleLinked == true) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(CupertinoIcons.globe, size: 10, color: Colors.blue),
+                                    SizedBox(width: 3),
+                                    Text(
+                                      'Google',
+                                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.blue),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Container(
@@ -157,7 +261,7 @@ class ProfileView extends ConsumerWidget {
                     icon: const Icon(CupertinoIcons.pencil_circle_fill, size: 26),
                     tooltip: 'Edit Name',
                     color: primaryColor,
-                    onPressed: () => _showEditNameDialog(context, ref, settings.userName),
+                    onPressed: () => _showEditNameDialog(context, ref, displayName),
                   ),
                 ],
               ),
@@ -295,6 +399,55 @@ class ProfileView extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SettingsView()),
                     );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Account & Cloud Synchronization
+            const AppleSectionHeader('Account & Cloud'),
+            AppleGroupedCard(
+              children: [
+                AppleListTile(
+                  icon: CupertinoIcons.globe,
+                  iconColor: Colors.blue,
+                  title: const Text('Google Account', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  subtitle: Text(
+                    authUser?.isGoogleLinked == true
+                        ? 'Connected: ${authUser?.googleEmail ?? authUser?.email}'
+                        : 'Connect your Google account',
+                    style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+                  ),
+                  trailing: authUser?.isGoogleLinked == true
+                      ? const Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.blue, size: 20)
+                      : TextButton(
+                          onPressed: () => _showLinkGoogleDialog(context),
+                          child: const Text('Connect'),
+                        ),
+                ),
+                AppleListTile(
+                  icon: CupertinoIcons.calendar,
+                  iconColor: Colors.green,
+                  title: const Text('Google Calendar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  subtitle: const Text('View and sync agenda events before workspace', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
+                  trailing: const Icon(CupertinoIcons.checkmark_circle_fill, color: Colors.green, size: 20),
+                ),
+                AppleListTile(
+                  icon: CupertinoIcons.arrow_right_square_fill,
+                  iconColor: BotanicalColors.alertRed,
+                  title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: BotanicalColors.alertRed)),
+                  subtitle: const Text('Log out of this device', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
+                  trailing: const Icon(CupertinoIcons.chevron_right, size: 16, color: CupertinoColors.systemGrey3),
+                  onTap: () async {
+                    AppleHaptics.mediumImpact();
+                    await AuthService.instance.signOut(DatabaseService.instance);
+                    if (context.mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
                   },
                 ),
               ],

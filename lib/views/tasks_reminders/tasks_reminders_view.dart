@@ -11,7 +11,7 @@ import '../../widgets/circular_checkbox.dart';
 import '../../widgets/reminder_editor_sheet.dart';
 import '../../widgets/task_editor_sheet.dart';
 
-enum TaskFilter { all, today, upcoming, overdue, completed }
+enum TaskFilter { week, today, upcoming, overdue, completed, all }
 
 enum TaskSort { dueDate, priority, title }
 
@@ -27,11 +27,22 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
   late int _selectedTab; // 0: Tasks, 1: Reminders
 
   // Tasks filter states
-  TaskFilter _taskFilter = TaskFilter.all;
+  TaskFilter _taskFilter = TaskFilter.week;
   TaskPriority? _priorityFilter;
   TaskSort _taskSort = TaskSort.dueDate;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+
+  bool _isInCurrentWeek(DateTime? date) {
+    if (date == null) return false;
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+    final d = DateTime(date.year, date.month, date.day);
+    final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final end = DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day);
+    return !d.isBefore(start) && !d.isAfter(end);
+  }
 
   @override
   void initState() {
@@ -110,9 +121,54 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _selectedTab == 0 ? _buildTasksBody(context) : _buildRemindersBody(context),
+      body: Column(
+        children: [
+          // Shared search bar — visible for both Tasks and Reminders tabs
+          Builder(builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+              child: SizedBox(
+                height: 38,
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Search tasks & reminders...',
+                    hintStyle: const TextStyle(fontSize: 13),
+                    prefixIcon: const Icon(CupertinoIcons.search, size: 16),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(CupertinoIcons.xmark_circle_fill, size: 16),
+                            onPressed: () => setState(() {
+                              _searchQuery = '';
+                              _searchController.clear();
+                            }),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                    filled: true,
+                    fillColor: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder,
+                        width: 0.8,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _selectedTab == 0 ? _buildTasksBody(context) : _buildRemindersBody(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -135,8 +191,8 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
         return false;
       }
       switch (_taskFilter) {
-        case TaskFilter.all:
-          return true;
+        case TaskFilter.week:
+          return (_isInCurrentWeek(task.dueDate) || (task.dueDate == null && _isInCurrentWeek(task.createdAt))) && !task.isCompleted;
         case TaskFilter.today:
           return task.isDueToday;
         case TaskFilter.upcoming:
@@ -144,7 +200,9 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
         case TaskFilter.overdue:
           return task.isOverdue;
         case TaskFilter.completed:
-          return task.isCompleted;
+          return task.isCompleted && _isInCurrentWeek(task.completedAt ?? task.dueDate ?? task.updatedAt);
+        case TaskFilter.all:
+          return true;
       }
     }).toList();
 
@@ -164,37 +222,12 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
 
     return Column(
       children: [
-        // Search & Sort bar
+        // Sort button row
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
           child: Row(
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 38,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Search tasks...',
-                      hintStyle: const TextStyle(fontSize: 13),
-                      prefixIcon: const Icon(CupertinoIcons.search, size: 16),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      filled: true,
-                      fillColor: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder,
-                          width: 0.8,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
+              const Spacer(),
               PopupMenuButton<TaskSort>(
                 icon: const Icon(CupertinoIcons.arrow_up_arrow_down, size: 18),
                 tooltip: 'Sort tasks',
@@ -214,11 +247,12 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             children: [
-              _buildFilterPill('All', TaskFilter.all),
+              _buildFilterPill('This Week', TaskFilter.week),
               _buildFilterPill('Today', TaskFilter.today),
               _buildFilterPill('Upcoming', TaskFilter.upcoming),
               _buildFilterPill('Overdue', TaskFilter.overdue),
-              _buildFilterPill('Done', TaskFilter.completed),
+              _buildFilterPill('Done (Week)', TaskFilter.completed),
+              _buildFilterPill('All', TaskFilter.all),
             ],
           ),
         ),
@@ -436,12 +470,19 @@ class _TasksAndRemindersViewState extends ConsumerState<TasksAndRemindersView> {
     final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
     final reminders = ref.watch(remindersProvider);
 
-    final todayReminders = reminders.where((r) => r.isDueToday && !r.isCompleted).toList();
-    final upcomingReminders = reminders.where((r) => !r.isDueToday && r.isUpcoming).toList();
-    final completedReminders = reminders.where((r) => r.isCompleted).toList();
+    // Apply search filter across reminders
+    final filteredReminders = _searchQuery.isEmpty
+        ? reminders
+        : reminders.where((r) => r.title.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
 
-    if (reminders.isEmpty) {
-      return _buildEmptyState('No reminders yet. Tap + to add one.');
+    final todayReminders = filteredReminders.where((r) => r.isDueToday && !r.isCompleted).toList();
+    final upcomingReminders = filteredReminders.where((r) => !r.isDueToday && r.isUpcoming).toList();
+    final completedReminders = filteredReminders.where((r) => r.isCompleted).toList();
+
+    if (filteredReminders.isEmpty) {
+      return _buildEmptyState(
+        _searchQuery.isNotEmpty ? 'No reminders match "$_searchQuery".' : 'No reminders yet. Tap + to add one.',
+      );
     }
 
     return ListView(

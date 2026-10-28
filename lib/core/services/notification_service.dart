@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import '../database/database_service.dart';
 import '../../models/reminder.dart';
 import '../../models/task.dart';
@@ -96,6 +99,11 @@ class NotificationService {
       }
 
       _isInitialized = true;
+
+      // Initialize timezone data
+      tz.initializeTimeZones();
+      final locationName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(locationName));
     } catch (e) {
       debugPrint('Notification initialization fallback: $e');
       _isInitialized = false;
@@ -157,9 +165,15 @@ class NotificationService {
     await _notificationsPlugin.show(id, title, body, details, payload: payload);
   }
 
-  /// Pushes a task notification (creation, deadline reminder, or status change)
+  /// Schedules a task notification at the task's due date+time via zonedSchedule.
+  /// If the task has no dueDate/dueTime, or the datetime is in the past, no notification is shown.
   Future<void> showTaskNotification(Task task, {String? customTitle, String? customMessage}) async {
     if (!_isInitialized) await initialize();
+
+    // Only schedule if the task has a future due date+time
+    final deadline = task.deadlineDateTime;
+    if (deadline == null) return; // No date set — skip silently
+    if (!deadline.isAfter(DateTime.now())) return; // Past — skip silently
 
     final id = (task.id.hashCode & 0x7FFFFFFF);
     final title = customTitle ?? 'Task: ${task.title}';
@@ -179,10 +193,18 @@ class NotificationService {
     );
 
     const details = NotificationDetails(android: androidDetails);
-    await _notificationsPlugin.show(id, title, body, details, payload: 'task:${task.id}');
+    await scheduleExactNotification(
+      id: id,
+      title: title,
+      body: body,
+      scheduledTime: deadline,
+      details: details,
+      payload: 'task:${task.id}',
+    );
   }
 
-  /// Schedules or immediately notifies for a reminder/habit
+  /// Schedules a reminder notification via zonedSchedule.
+  /// If the target time is in the past, the notification is silently skipped.
   Future<void> scheduleReminderNotification(Reminder reminder) async {
     if (!_isInitialized) await initialize();
 
@@ -203,17 +225,44 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
+    await scheduleExactNotification(
+      id: id,
+      title: 'Reminder: ${reminder.title}',
+      body: 'Scheduled alert for $timeStr ${reminder.isRecurring ? '(Recurring)' : ''}',
+      scheduledTime: targetTime,
+      details: notificationDetails,
+      payload: 'reminder:${reminder.id}',
+    );
+  }
+
+  /// Schedules an exact notification at [scheduledTime] using zonedSchedule.
+  /// Silently no-ops if [scheduledTime] is in the past.
+  Future<void> scheduleExactNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    required NotificationDetails details,
+    String? payload,
+  }) async {
+    if (!_isInitialized) await initialize();
+    if (!scheduledTime.isAfter(DateTime.now())) {
+      debugPrint('Skipping notification (past time): $title at $scheduledTime');
+      return;
+    }
     try {
-      debugPrint('Notification pushed for reminder: ${reminder.title} at $timeStr');
-      await _notificationsPlugin.show(
+      await _notificationsPlugin.zonedSchedule(
         id,
-        'Reminder: ${reminder.title}',
-        'Scheduled alert for $timeStr ${reminder.isRecurring ? '(Recurring)' : ''}',
-        notificationDetails,
-        payload: 'reminder:${reminder.id}',
+        title,
+        body,
+        tz.TZDateTime.from(scheduledTime, tz.local),
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: payload,
       );
+      debugPrint('Scheduled notification "$title" for $scheduledTime');
     } catch (e) {
-      debugPrint('Error scheduling reminder notification: $e');
+      debugPrint('Error scheduling exact notification: $e');
     }
   }
 
@@ -228,19 +277,25 @@ class NotificationService {
     _alertedNotificationKeys.removeWhere((k) => k.startsWith('${entityId}_'));
   }
 
-  /// Starts the active deadline and timeline watcher
+  /// Starts the active deadline and timeline watcher without blasting notifications on app open
   void startDeadlineWatcher(DatabaseService db, UserSettings Function() getSettings) {
     _deadlineWatcherTimer?.cancel();
-    // Immediate initial check
-    checkApproachingDeadlines(db, getSettings());
-    // Periodic heartbeat check every 25 seconds
-    _deadlineWatcherTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-      checkApproachingDeadlines(db, getSettings());
+    // Initial check in silent seed mode so opening the app NEVER pushes immediate notifications
+    checkApproachingDeadlines(db, getSettings(), isInitialSeed: true);
+    // Periodic heartbeat check every 30 seconds
+    _deadlineWatcherTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      checkApproachingDeadlines(db, getSettings(), isInitialSeed: false);
     });
   }
 
-  /// Checks approaching deadlines for tasks, reminders, and timeline events
-  Future<void> checkApproachingDeadlines(DatabaseService db, UserSettings settings) async {
+  /// Checks approaching deadlines for tasks, reminders, and timeline events.
+  /// If [isInitialSeed] is true (e.g. app just opened), it records keys into
+  /// [_alertedNotificationKeys] without displaying alerts so opening the app never spams the user.
+  Future<void> checkApproachingDeadlines(
+    DatabaseService db,
+    UserSettings settings, {
+    bool isInitialSeed = false,
+  }) async {
     if (!settings.notificationsEnabled) return;
     if (!_isInitialized) await initialize();
 
@@ -263,12 +318,14 @@ class NotificationService {
           final alertKey = '${task.id}_soon_${deadline.toIso8601String().substring(0, 16)}';
           if (!_alertedNotificationKeys.contains(alertKey)) {
             _alertedNotificationKeys.add(alertKey);
-            final remainingStr = _formatRemaining(diff);
-            await showDeadlineAlert(
-              title: '⏳ Deadline Ending Soon: ${task.title}',
-              body: 'Ending in $remainingStr (by ${task.dueTime != null ? task.dueTime!.formatDirect() : "today"}) · ${task.category}',
-              payload: 'task:${task.id}',
-            );
+            if (!isInitialSeed) {
+              final remainingStr = _formatRemaining(diff);
+              await showDeadlineAlert(
+                title: '⏳ Deadline Ending Soon: ${task.title}',
+                body: 'Ending in $remainingStr (by ${task.dueTime != null ? task.dueTime!.formatDirect() : "today"}) · ${task.category}',
+                payload: 'task:${task.id}',
+              );
+            }
           }
         }
 
@@ -277,11 +334,13 @@ class NotificationService {
           final alertKey = '${task.id}_due_${deadline.toIso8601String().substring(0, 16)}';
           if (!_alertedNotificationKeys.contains(alertKey)) {
             _alertedNotificationKeys.add(alertKey);
-            await showDeadlineAlert(
-              title: '🚨 Deadline Reached: ${task.title}',
-              body: 'The timeline for this task has ended. Tap to complete or reschedule.',
-              payload: 'task:${task.id}',
-            );
+            if (!isInitialSeed) {
+              await showDeadlineAlert(
+                title: '🚨 Deadline Reached: ${task.title}',
+                body: 'The timeline for this task has ended. Tap to complete or reschedule.',
+                payload: 'task:${task.id}',
+              );
+            }
           }
         }
       }
@@ -298,11 +357,13 @@ class NotificationService {
           final alertKey = '${reminder.id}_soon_${triggerTime.toIso8601String().substring(0, 16)}';
           if (!_alertedNotificationKeys.contains(alertKey)) {
             _alertedNotificationKeys.add(alertKey);
-            await showDeadlineAlert(
-              title: '⏰ Reminder Soon: ${reminder.title}',
-              body: 'Scheduled in ${_formatRemaining(diff)}',
-              payload: 'reminder:${reminder.id}',
-            );
+            if (!isInitialSeed) {
+              await showDeadlineAlert(
+                title: '⏰ Reminder Soon: ${reminder.title}',
+                body: 'Scheduled in ${_formatRemaining(diff)}',
+                payload: 'reminder:${reminder.id}',
+              );
+            }
           }
         }
 
@@ -310,11 +371,13 @@ class NotificationService {
           final alertKey = '${reminder.id}_due_${triggerTime.toIso8601String().substring(0, 16)}';
           if (!_alertedNotificationKeys.contains(alertKey)) {
             _alertedNotificationKeys.add(alertKey);
-            await showDeadlineAlert(
-              title: '⏰ Reminder: ${reminder.title}',
-              body: 'Scheduled time reached right now.',
-              payload: 'reminder:${reminder.id}',
-            );
+            if (!isInitialSeed) {
+              await showDeadlineAlert(
+                title: '⏰ Reminder: ${reminder.title}',
+                body: 'Scheduled time reached right now.',
+                payload: 'reminder:${reminder.id}',
+              );
+            }
           }
         }
       }
@@ -329,11 +392,13 @@ class NotificationService {
           final alertKey = '${event.id}_soon_${event.endTime.toIso8601String().substring(0, 16)}';
           if (!_alertedNotificationKeys.contains(alertKey)) {
             _alertedNotificationKeys.add(alertKey);
-            await showDeadlineAlert(
-              title: '📅 Event Finishing Soon: ${event.title}',
-              body: 'Ends in ${_formatRemaining(diff)} · ${event.location ?? "Calendar"}',
-              payload: 'event:${event.id}',
-            );
+            if (!isInitialSeed) {
+              await showDeadlineAlert(
+                title: '📅 Event Finishing Soon: ${event.title}',
+                body: 'Ends in ${_formatRemaining(diff)} · ${event.location ?? "Calendar"}',
+                payload: 'event:${event.id}',
+              );
+            }
           }
         }
       }

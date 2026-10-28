@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/colors.dart';
 import '../../models/journal_entry.dart';
 import '../../models/note.dart';
+import '../../models/reminder.dart';
 import '../../providers/providers.dart';
 import '../../widgets/apple_widgets.dart';
 import '../../widgets/journal_archive_sheet.dart';
@@ -14,6 +15,7 @@ import '../../widgets/journal_curtain_canvas.dart';
 import '../../widgets/links_table_sheet.dart';
 import '../../widgets/mood_slider.dart';
 import '../../widgets/note_editor_sheet.dart';
+import '../../widgets/reminder_editor_sheet.dart';
 
 class NotesAndJournalsView extends ConsumerStatefulWidget {
   final int initialTab;
@@ -178,12 +180,12 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
           // Main Body: Notes Tab or Journal Tab
           _selectedTab == 0 ? _buildNotesTab(context) : _buildJournalTab(context),
 
-          // Floating Input Pill Bar (matching screenshot: above bottom nav bar in Journal tab)
+          // Floating Input Pill Bar (comfortably floats above bottom nav bar in Journal tab)
           if (_selectedTab == 1)
             Positioned(
-              left: 28,
-              right: 28,
-              bottom: 84, // positioned nicely above the floating capsule navigation bar
+              left: 24,
+              right: 24,
+              bottom: MediaQuery.of(context).padding.bottom + 94,
               child: _buildExpressPill(context, isDark),
             ),
         ],
@@ -273,7 +275,7 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
     }).toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 160), // extra bottom padding for floating pill
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 185), // extra bottom padding for floating pill
       children: [
         // Optional Search Bar when toggled
         if (_isSearchOpen) ...[
@@ -412,177 +414,260 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
         else
           ...filteredRecents.map((entry) {
             final moodItem = MoodSlider.fromMoodString(entry.mood);
+            // Subtle tint from mood colour for gradient
+            final moodTint = moodItem.color.withValues(alpha: isDark ? 0.06 : 0.04);
+            final baseCardColor = isDark ? const Color(0xFF282432) : Colors.white;
 
             return Container(
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.fromLTRB(0, 0, 0, 12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF282432) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.05),
-                  width: 0.8,
-                ),
+                borderRadius: BorderRadius.circular(22),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.05),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => _openCurtainCanvas(context, entry: entry),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title of journal
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                entry.displayTitle,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 18,
-                                  letterSpacing: -0.3,
-                                ),
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              icon: const Icon(CupertinoIcons.ellipsis, size: 16),
-                              onSelected: (val) {
-                                if (val == 'archive') {
-                                  AppleHaptics.selection();
-                                  ref.read(journalProvider.notifier).toggleArchive(entry.id, true);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Moved to Archive'),
-                                      duration: Duration(seconds: 2),
-                                      behavior: SnackBarBehavior.floating,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Stack(
+                  children: [
+                    // Gradient background
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [baseCardColor, Color.alphaBlend(moodTint, baseCardColor)],
+                          ),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.05),
+                            width: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Left accent bar
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 3,
+                        decoration: BoxDecoration(
+                          color: moodItem.color,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(22),
+                            bottomLeft: Radius.circular(22),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Card content
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                        onTap: () => _openCurtainCanvas(context, entry: entry),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title row + date chip + menu
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      entry.displayTitle,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 17,
+                                        letterSpacing: -0.4,
+                                      ),
                                     ),
-                                  );
-                                } else if (val == 'delete') {
-                                  AppleHaptics.mediumImpact();
-                                  ref.read(journalProvider.notifier).deleteEntry(entry.id);
-                                }
-                              },
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(
-                                  value: 'archive',
-                                  child: Row(
-                                    children: [
-                                      Icon(CupertinoIcons.archivebox, size: 16),
-                                      SizedBox(width: 8),
-                                      Text('Move to Archive', style: TextStyle(fontSize: 13)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Day-name chip (e.g. "Mon")
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: moodItem.color.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      DateFormat('EEE').format(entry.createdAt),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: moodItem.color,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(CupertinoIcons.ellipsis, size: 16),
+                                    onSelected: (val) {
+                                      if (val == 'archive') {
+                                        AppleHaptics.selection();
+                                        ref.read(journalProvider.notifier).toggleArchive(entry.id, true);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Moved to Archive'),
+                                            duration: Duration(seconds: 2),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      } else if (val == 'delete') {
+                                        AppleHaptics.mediumImpact();
+                                        ref.read(journalProvider.notifier).deleteEntry(entry.id);
+                                      }
+                                    },
+                                    itemBuilder: (_) => [
+                                      const PopupMenuItem(
+                                        value: 'archive',
+                                        child: Row(
+                                          children: [
+                                            Icon(CupertinoIcons.archivebox, size: 16),
+                                            SizedBox(width: 8),
+                                            Text('Move to Archive', style: TextStyle(fontSize: 13)),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(CupertinoIcons.trash, size: 16, color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Delete', style: TextStyle(color: Colors.red, fontSize: 13)),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
+                                ],
+                              ),
+
+                              // Divider below title
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Divider(
+                                  height: 1,
+                                  thickness: 0.5,
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.08)
+                                      : Colors.black.withValues(alpha: 0.07),
                                 ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(CupertinoIcons.trash, size: 16, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Delete', style: TextStyle(color: Colors.red, fontSize: 13)),
-                                    ],
+                              ),
+
+                              // Date and relative time
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    DateFormat('d MMM yyyy').format(entry.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF6B6575),
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatRelativeTime(entry.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF756F82),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // Thought preview
+                              if (entry.thought.isNotEmpty) ...[
+                                const SizedBox(height: 9),
+                                Text(
+                                  entry.thought,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    color: isDark
+                                        ? BotanicalColors.darkTextPrimary
+                                        : BotanicalColors.lightTextPrimary,
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        ),
 
-                        // Date line: "Mon 12 Oct" (left) and "2 mins ago" (right)
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              DateFormat('EEE d MMM').format(entry.createdAt),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF6B6575),
-                              ),
-                            ),
-                            Text(
-                              _formatRelativeTime(entry.createdAt),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: isDark ? BotanicalColors.darkTextSecondary : const Color(0xFF756F82),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Context snippet
-                        if (entry.thought.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            entry.thought,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.35,
-                              color: isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary,
-                            ),
-                          ),
-                        ],
-
-                        // Tags and Mood Tag if present
-                        if (entry.tags.isNotEmpty || entry.mood.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: moodItem.color.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(moodItem.emoji, style: const TextStyle(fontSize: 11)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      moodItem.label,
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: moodItem.color),
+                              // Bottom row: mood pill + tags + chevron
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  // Prominent mood pill
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: moodItem.color.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                  ],
-                                ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(moodItem.emoji, style: const TextStyle(fontSize: 13)),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          moodItem.label,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: moodItem.color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  ...entry.tags.take(2).map((t) {
+                                    return Container(
+                                      margin: const EdgeInsets.only(right: 6),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.white.withValues(alpha: 0.08)
+                                            : Colors.black.withValues(alpha: 0.04),
+                                        borderRadius: BorderRadius.circular(7),
+                                      ),
+                                      child: Text(
+                                        '#$t',
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                                      ),
+                                    );
+                                  }),
+                                  const Spacer(),
+                                  // Chevron / enter icon
+                                  Icon(
+                                    CupertinoIcons.chevron_right,
+                                    size: 14,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.25)
+                                        : Colors.black.withValues(alpha: 0.2),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                              ...entry.tags.take(2).map((t) {
-                                return Container(
-                                  margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '#$t',
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                                  ),
-                                );
-                              }),
                             ],
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             );
@@ -591,14 +676,29 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
     );
   }
 
-  // --- Notes Tab ---
+  // --- Notes Tab (supports searching both notes and reminders) ---
   Widget _buildNotesTab(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? BotanicalColors.darkPrimary : BotanicalColors.lightPrimary;
+    final borderColor = isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder;
     final notes = ref.watch(notesProvider);
+    final reminders = ref.watch(remindersProvider);
 
-    final pinnedNotes = notes.where((n) => n.isPinned).toList();
-    final otherNotes = notes.where((n) => !n.isPinned).toList();
+    final filteredNotes = notes.where((n) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      final titleMatch = n.title.toLowerCase().contains(q);
+      final contentMatch = n.content.toLowerCase().contains(q);
+      final tagMatch = n.tags.any((t) => t.toLowerCase().contains(q));
+      return titleMatch || contentMatch || tagMatch;
+    }).toList();
+
+    final filteredReminders = _searchQuery.isEmpty
+        ? <Reminder>[]
+        : reminders.where((r) => r.title.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+    final pinnedNotes = filteredNotes.where((n) => n.isPinned).toList();
+    final otherNotes = filteredNotes.where((n) => !n.isPinned).toList();
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -614,39 +714,154 @@ class _NotesAndJournalsViewState extends ConsumerState<NotesAndJournalsView> {
         },
         child: const Icon(CupertinoIcons.add, size: 24),
       ),
-      body: notes.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+        children: [
+          // Search bar when search button is toggled
+          if (_isSearchOpen) ...[
+            Container(
+              height: 42,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderColor, width: 0.8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
                 children: [
-                  Icon(CupertinoIcons.doc_text, size: 48, color: CupertinoColors.systemGrey3),
-                  SizedBox(height: 12),
-                  Text(
-                    'No notes yet',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: CupertinoColors.systemGrey),
+                  const Icon(CupertinoIcons.search, size: 16, color: CupertinoColors.systemGrey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      autofocus: true,
+                      style: const TextStyle(fontSize: 14),
+                      decoration: const InputDecoration(
+                        hintText: 'Search notes and reminders...',
+                        hintStyle: TextStyle(fontSize: 13),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Tap + to create your first note.',
-                    style: TextStyle(fontSize: 13, color: CupertinoColors.systemGrey2),
-                  ),
+                  if (_searchQuery.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
+                      },
+                      child: const Icon(CupertinoIcons.xmark_circle_fill, size: 16, color: CupertinoColors.systemGrey),
+                    ),
                 ],
               ),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+            ),
+          ],
+
+          // Matching Reminders section (when searching)
+          if (_searchQuery.isNotEmpty && filteredReminders.isNotEmpty) ...[
+            AppleSectionHeader('Matching Reminders (${filteredReminders.length})'),
+            ...filteredReminders.map((r) => _buildReminderSearchCard(r, isDark, primaryColor)),
+            const SizedBox(height: 16),
+          ],
+
+          // Notes sections
+          if (pinnedNotes.isNotEmpty) ...[
+            const AppleSectionHeader('Pinned Notes'),
+            ...pinnedNotes.map((n) => _buildNoteCard(n, isDark)),
+            const SizedBox(height: 16),
+          ],
+          if (otherNotes.isNotEmpty) ...[
+            if (pinnedNotes.isNotEmpty || filteredReminders.isNotEmpty) const AppleSectionHeader('Notes'),
+            ...otherNotes.map((n) => _buildNoteCard(n, isDark)),
+          ],
+
+          if (filteredNotes.isEmpty && filteredReminders.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _searchQuery.isNotEmpty ? CupertinoIcons.search : CupertinoIcons.doc_text,
+                      size: 48,
+                      color: CupertinoColors.systemGrey3,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'No notes or reminders match "$_searchQuery"'
+                          : 'No notes yet',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: CupertinoColors.systemGrey),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'Try searching with a different term'
+                          : 'Tap + to create your first note.',
+                      style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReminderSearchCard(Reminder reminder, bool isDark, Color primaryColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? BotanicalColors.darkSurface : BotanicalColors.lightSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? BotanicalColors.darkBorder : BotanicalColors.lightBorder,
+          width: 0.75,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(CupertinoIcons.bell_fill, size: 16, color: primaryColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (pinnedNotes.isNotEmpty) ...[
-                  const AppleSectionHeader('Pinned Notes'),
-                  ...pinnedNotes.map((n) => _buildNoteCard(n, isDark)),
-                  const SizedBox(height: 16),
-                ],
-                if (otherNotes.isNotEmpty) ...[
-                  if (pinnedNotes.isNotEmpty) const AppleSectionHeader('All Notes'),
-                  ...otherNotes.map((n) => _buildNoteCard(n, isDark)),
-                ],
+                Text(
+                  reminder.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    decoration: reminder.isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                Text(
+                  'Reminder · Due ${reminder.effectiveDueTime.hour.toString().padLeft(2, '0')}:${reminder.effectiveDueTime.minute.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 11, color: CupertinoColors.systemGrey),
+                ),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(CupertinoIcons.pencil, size: 16),
+            onPressed: () async {
+              AppleHaptics.selection();
+              final updated = await ReminderEditorSheet.show(context, reminder: reminder);
+              if (updated != null) {
+                ref.read(remindersProvider.notifier).updateReminder(updated);
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 

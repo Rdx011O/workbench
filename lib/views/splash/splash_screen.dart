@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/auth_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/update_service.dart';
 import '../../core/theme/colors.dart';
 import '../../widgets/app_scaffold.dart';
+import '../auth/login_screen.dart';
 import '../update/update_screen.dart';
 
 class AnimatedSplashScreen extends ConsumerStatefulWidget {
@@ -101,13 +103,17 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
   void _navigateToNextScreen() {
     if (!mounted) return;
 
+    final destination = AuthService.instance.isLoggedIn
+        ? const AppScaffold()
+        : const LoginScreen();
+
     final targetScreen = _availableUpdate != null
         ? UpdateScreen(
             releaseInfo: _availableUpdate!,
             onProceedAnyway: () {
               Navigator.of(context).pushReplacement(
                 PageRouteBuilder(
-                  pageBuilder: (_, __, ___) => const AppScaffold(),
+                  pageBuilder: (_, __, ___) => destination,
                   transitionsBuilder: (_, animation, __, child) =>
                       FadeTransition(opacity: animation, child: child),
                   transitionDuration: const Duration(milliseconds: 400),
@@ -115,7 +121,7 @@ class _AnimatedSplashScreenState extends ConsumerState<AnimatedSplashScreen>
               );
             },
           )
-        : const AppScaffold();
+        : destination;
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

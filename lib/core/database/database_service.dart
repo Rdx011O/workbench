@@ -11,6 +11,7 @@ import '../../models/note.dart';
 import '../../models/reminder.dart';
 import '../../models/task.dart';
 import '../../models/user_settings.dart';
+import '../services/auth_service.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._internal();
@@ -664,5 +665,131 @@ class DatabaseService {
     await db.delete('events');
     await db.delete('notes');
     await db.delete('journal_entries');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auth Methods
+  // ---------------------------------------------------------------------------
+
+  /// Creates the users_auth and app_session tables if they don't already exist.
+  Future<void> ensureUserAuthTable() async {
+    final db = await database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS users_auth (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT,
+        google_email TEXT,
+        is_google_linked INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_session (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+  }
+
+  Future<void> insertAuthUser(AuthUser user, String passwordHash) async {
+    final db = await database;
+    await db.insert(
+      'users_auth',
+      {
+        'id': user.id,
+        'email': user.email,
+        'username': user.username,
+        'password_hash': passwordHash,
+        'google_email': user.googleEmail,
+        'is_google_linked': user.isGoogleLinked ? 1 : 0,
+        'created_at': user.createdAt.toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<AuthUser?> getUserByEmail(String email) async {
+    final db = await database;
+    final maps = await db.query(
+      'users_auth',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    if (maps.isEmpty) return null;
+    return AuthUser.fromMap(maps.first);
+  }
+
+  Future<AuthUser?> getUserByEmailAndPassword(
+      String email, String passwordHash) async {
+    final db = await database;
+    final maps = await db.query(
+      'users_auth',
+      where: 'email = ? AND password_hash = ?',
+      whereArgs: [email, passwordHash],
+    );
+    if (maps.isEmpty) return null;
+    return AuthUser.fromMap(maps.first);
+  }
+
+  Future<AuthUser?> getUserByGoogleEmail(String googleEmail) async {
+    final db = await database;
+    final maps = await db.query(
+      'users_auth',
+      where: 'google_email = ?',
+      whereArgs: [googleEmail],
+    );
+    if (maps.isEmpty) return null;
+    return AuthUser.fromMap(maps.first);
+  }
+
+  Future<AuthUser?> getLoggedInUser() async {
+    final db = await database;
+    try {
+      final session = await db.query(
+        'app_session',
+        where: 'key = ?',
+        whereArgs: ['logged_in_user_id'],
+      );
+      if (session.isEmpty) return null;
+      final userId = session.first['value'] as String?;
+      if (userId == null || userId.isEmpty) return null;
+      final maps =
+          await db.query('users_auth', where: 'id = ?', whereArgs: [userId]);
+      if (maps.isEmpty) return null;
+      return AuthUser.fromMap(maps.first);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setLoggedInUser(String userId) async {
+    final db = await database;
+    await db.insert(
+      'app_session',
+      {'key': 'logged_in_user_id', 'value': userId},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> clearLoggedInUser() async {
+    final db = await database;
+    await db.delete('app_session',
+        where: 'key = ?', whereArgs: ['logged_in_user_id']);
+  }
+
+  Future<void> updateAuthUser(AuthUser user) async {
+    final db = await database;
+    await db.update(
+      'users_auth',
+      {
+        'username': user.username,
+        'google_email': user.googleEmail,
+        'is_google_linked': user.isGoogleLinked ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [user.id],
+    );
   }
 }

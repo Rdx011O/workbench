@@ -56,6 +56,7 @@ class _JournalCurtainCanvasState extends State<JournalCurtainCanvas>
 
   bool _isListening = false;
   bool _speechAvailable = false;
+  String _lastSpeechText = '';
 
   final List<String> _suggestedTags = [
     'Mindfulness',
@@ -100,7 +101,10 @@ class _JournalCurtainCanvasState extends State<JournalCurtainCanvas>
     AppleHaptics.lightImpact();
     if (_isListening) {
       await SpeechService.instance.stopListening();
-      setState(() => _isListening = false);
+      setState(() {
+        _isListening = false;
+        _lastSpeechText = '';
+      });
     } else {
       if (!_speechAvailable) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,9 +114,17 @@ class _JournalCurtainCanvasState extends State<JournalCurtainCanvas>
       }
       await SpeechService.instance.startListening(
         onResult: (text) {
+          if (!mounted) return;
           setState(() {
             final existing = _contextController.text;
-            _contextController.text = existing.isEmpty ? text : '$existing $text';
+            // Remove the previous speech segment if present, then append new final result
+            if (_lastSpeechText.isNotEmpty && existing.endsWith(_lastSpeechText)) {
+              _contextController.text =
+                  '${existing.substring(0, existing.length - _lastSpeechText.length).trimRight()} $text'.trim();
+            } else {
+              _contextController.text = existing.isEmpty ? text : '$existing $text';
+            }
+            _lastSpeechText = text;
           });
         },
         onStatusChange: (listening) {

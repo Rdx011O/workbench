@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "403776113715",
+    "project_id": "workbench-8c689",
+    "storage_bucket": "workbench-8c689.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:403776113715:android:4f5167fc792ffe4c156746",
+        "android_client_info": {
+          "package_name": "com.botanical.planner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAiwUqFhoZ7CEUqOpT6bUwXJxnSP5h_Wdw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

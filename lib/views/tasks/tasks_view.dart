@@ -10,7 +10,7 @@ import '../../widgets/apple_widgets.dart';
 import '../../widgets/circular_checkbox.dart';
 import '../../widgets/task_editor_sheet.dart';
 
-enum TaskFilter { all, today, upcoming, overdue, completed }
+enum TaskFilter { all, week, today, upcoming, overdue, completed }
 
 enum TaskSort { dueDate, priority, title }
 
@@ -22,7 +22,7 @@ class TasksView extends ConsumerStatefulWidget {
 }
 
 class _TasksViewState extends ConsumerState<TasksView> {
-  TaskFilter _filter = TaskFilter.all;
+  TaskFilter _filter = TaskFilter.week;
   TaskPriority? _priorityFilter;
   TaskSort _sort = TaskSort.dueDate;
   String _searchQuery = '';
@@ -32,6 +32,17 @@ class _TasksViewState extends ConsumerState<TasksView> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool _isInCurrentWeek(DateTime? date) {
+    if (date == null) return false;
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+    final d = DateTime(date.year, date.month, date.day);
+    final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final end = DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day);
+    return !d.isBefore(start) && !d.isAfter(end);
   }
 
   @override
@@ -58,8 +69,8 @@ class _TasksViewState extends ConsumerState<TasksView> {
       }
 
       switch (_filter) {
-        case TaskFilter.all:
-          return true;
+        case TaskFilter.week:
+          return (_isInCurrentWeek(task.dueDate) || (task.dueDate == null && _isInCurrentWeek(task.createdAt))) && !task.isCompleted;
         case TaskFilter.today:
           return task.isDueToday;
         case TaskFilter.upcoming:
@@ -67,7 +78,9 @@ class _TasksViewState extends ConsumerState<TasksView> {
         case TaskFilter.overdue:
           return task.isOverdue;
         case TaskFilter.completed:
-          return task.isCompleted;
+          return task.isCompleted && _isInCurrentWeek(task.completedAt ?? task.dueDate ?? task.updatedAt);
+        case TaskFilter.all:
+          return true;
       }
     }).toList();
 
@@ -124,7 +137,7 @@ class _TasksViewState extends ConsumerState<TasksView> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  _buildFilterPill('All', TaskFilter.all),
+                  _buildFilterPill('This Week', TaskFilter.week),
                   const SizedBox(width: 8),
                   _buildFilterPill('Today', TaskFilter.today),
                   const SizedBox(width: 8),
@@ -132,7 +145,9 @@ class _TasksViewState extends ConsumerState<TasksView> {
                   const SizedBox(width: 8),
                   _buildFilterPill('Overdue', TaskFilter.overdue),
                   const SizedBox(width: 8),
-                  _buildFilterPill('Completed', TaskFilter.completed),
+                  _buildFilterPill('Completed (Week)', TaskFilter.completed),
+                  const SizedBox(width: 8),
+                  _buildFilterPill('All', TaskFilter.all),
                 ],
               ),
             ),

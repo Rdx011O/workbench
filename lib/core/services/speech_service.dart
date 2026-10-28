@@ -46,7 +46,9 @@ class SpeechService {
     try {
       await _speech.listen(
         onResult: (result) {
-          onResult(result.recognizedWords);
+          if (result.finalResult) {
+            onResult(result.recognizedWords);
+          }
         },
         listenOptions: SpeechListenOptions(
           listenMode: ListenMode.dictation,

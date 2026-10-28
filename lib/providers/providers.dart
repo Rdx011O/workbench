@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../core/database/database_service.dart';
+import '../core/services/auth_service.dart';
 import '../core/services/notification_service.dart';
 import '../models/event.dart';
 import '../models/journal_entry.dart';
@@ -13,6 +14,10 @@ import '../models/user_settings.dart';
 
 // --- Database Service Provider ---
 final databaseServiceProvider = Provider<DatabaseService>((ref) => DatabaseService.instance);
+
+// --- Auth Service Provider ---
+final authServiceProvider = Provider<AuthService>((ref) => AuthService.instance);
+final currentUserProvider = Provider<AuthUser?>((ref) => ref.watch(authServiceProvider).currentUser);
 
 // --- Notification Service Provider ---
 final notificationServiceProvider = Provider<NotificationService>((ref) => NotificationService.instance);
