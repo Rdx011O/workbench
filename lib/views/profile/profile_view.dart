@@ -578,7 +578,6 @@ class _ShorebirdUpdateCard extends StatelessWidget {
             statusDescription = shorebird.errorMessage ?? 'Update check failed';
             break;
           case UpdateStatusState.idle:
-          default:
             actionWidget = CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => shorebird.checkManually(),

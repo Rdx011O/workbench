@@ -1,6 +1,9 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 enum UpdateStatusState {
   idle,
@@ -12,7 +15,7 @@ enum UpdateStatusState {
   error,
 }
 
-class ShorebirdService extends ChangeNotifier {
+class ShorebirdService extends ChangeNotifier with WidgetsBindingObserver {
   ShorebirdService._();
   static final ShorebirdService instance = ShorebirdService._();
 
@@ -31,10 +34,18 @@ class ShorebirdService extends ChangeNotifier {
 
   int? get currentPatchNumber => _currentPatch?.number;
 
-  /// Initializes Shorebird status and optionally checks for updates in background
+  bool _initialized = false;
+  DateTime? _lastCheckTime;
+
+  /// Initializes Shorebird status, lifecycle observer, and performs background update check
   Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    WidgetsBinding.instance.addObserver(this);
+
     if (!isShorebirdAvailable) {
-      debugPrint('[ShorebirdService] Shorebird engine not available in this build (e.g. debug/local emulator).');
+      debugPrint('[ShorebirdService] Shorebird engine not active in debug/local mode.');
       return;
     }
 
@@ -50,9 +61,22 @@ class ShorebirdService extends ChangeNotifier {
     unawaited(checkForUpdatesSilent());
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Throttle checks to once every 10 minutes when app is resumed
+      final now = DateTime.now();
+      if (_lastCheckTime == null || now.difference(_lastCheckTime!) > const Duration(minutes: 10)) {
+        unawaited(checkForUpdatesSilent());
+      }
+    }
+  }
+
   /// Silent background check & auto-download
   Future<void> checkForUpdatesSilent() async {
     if (!isShorebirdAvailable) return;
+    _lastCheckTime = DateTime.now();
+
     try {
       final updateStatus = await _updater.checkForUpdate();
       if (updateStatus == UpdateStatus.outdated) {
@@ -62,7 +86,48 @@ class ShorebirdService extends ChangeNotifier {
         await _updater.update();
         _status = UpdateStatusState.readyToRestart;
         notifyListeners();
-        debugPrint('[ShorebirdService] Patch downloaded and staged! Will apply on next restart.');
+        debugPrint('[ShorebirdService] Patch downloaded! Showing prompt.');
+
+        // Show a non-intrusive in-app banner to alert user
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            backgroundColor: const Color(0xFF1B4332),
+            duration: const Duration(seconds: 10),
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Workbench Updated',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text(
+                        'New update ready. Reopen app to apply.',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       } else {
         _status = UpdateStatusState.upToDate;
         notifyListeners();

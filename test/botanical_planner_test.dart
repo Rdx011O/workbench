@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:botanical_planner/models/task.dart';
-import 'package:botanical_planner/models/reminder.dart';
-import 'package:botanical_planner/models/event.dart';
-import 'package:botanical_planner/models/note.dart';
-import 'package:botanical_planner/models/journal_entry.dart';
-import 'package:botanical_planner/models/user_settings.dart';
-import 'package:botanical_planner/widgets/user_avatar.dart';
+import 'package:workbench/models/task.dart';
+import 'package:workbench/models/reminder.dart';
+import 'package:workbench/models/event.dart';
+import 'package:workbench/models/note.dart';
+import 'package:workbench/models/journal_entry.dart';
+import 'package:workbench/models/user_settings.dart';
+import 'package:workbench/widgets/user_avatar.dart';
 
 void main() {
   group('Task Model & Priority Tests', () {

@@ -1,8 +1,8 @@
-import 'package:botanical_planner/models/task.dart';
-import 'package:botanical_planner/models/reminder.dart';
-import 'package:botanical_planner/models/event.dart';
-import 'package:botanical_planner/models/note.dart';
-import 'package:botanical_planner/models/journal_entry.dart';
+import 'package:workbench/models/task.dart';
+import 'package:workbench/models/reminder.dart';
+import 'package:workbench/models/event.dart';
+import 'package:workbench/models/note.dart';
+import 'package:workbench/models/journal_entry.dart';
 
 void assertTrue(bool condition, String message) {
   if (!condition) {

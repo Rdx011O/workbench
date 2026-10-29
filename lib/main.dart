@@ -60,6 +60,7 @@ class WorkbenchApp extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
 
     return MaterialApp(
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       title: 'Workbench',
       debugShowCheckedModeBanner: false,
       theme: WorkbenchTheme.lightTheme,
