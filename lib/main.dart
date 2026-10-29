@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/database/database_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/shorebird_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
 import 'views/splash/splash_screen.dart';
@@ -39,6 +42,9 @@ void main() async {
   // Initialize local notifications service & channels
   await NotificationService.instance.initialize();
 
+  // Initialize Shorebird OTA code push updater
+  unawaited(ShorebirdService.instance.initialize());
+
   runApp(
     const ProviderScope(
       child: WorkbenchApp(),
@@ -56,8 +62,8 @@ class WorkbenchApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Workbench',
       debugShowCheckedModeBanner: false,
-      theme: BotanicalTheme.lightTheme,
-      darkTheme: BotanicalTheme.darkTheme,
+      theme: WorkbenchTheme.lightTheme,
+      darkTheme: WorkbenchTheme.darkTheme,
       themeMode: settings.themeMode,
       home: const AnimatedSplashScreen(),
     );

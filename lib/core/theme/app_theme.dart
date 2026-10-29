@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'colors.dart';
 import 'typography.dart';
 
-class BotanicalTheme {
+class WorkbenchTheme {
   static ThemeData get lightTheme {
     final textTheme = BotanicalTypography.createTextTheme(isDark: false);
 
@@ -278,3 +278,6 @@ class BotanicalTheme {
     );
   }
 }
+
+/// Backward-compatible alias
+typedef BotanicalTheme = WorkbenchTheme;

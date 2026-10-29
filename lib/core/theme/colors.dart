@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Complete Color Specification for Botanical Planner.
+/// Complete Color Specification for Workbench.
 /// Implements exact 20-token Light and Dark palette as defined in the specification.
-class BotanicalColors {
+class WorkbenchColors {
   // 1. App background
   static const Color lightBackground = Color(0xFFF2F0F5);
   static const Color darkBackground = Color(0xFF25232D);
@@ -134,4 +134,10 @@ class BotanicalColors {
   static const Color tagHealth = Color(0xFF456B5B);
   static const Color tagReading = Color(0xFF554368);
   static const Color tagHome = Color(0xFF625B6C);
+
+  // Brand & Accent Aliases
+  static const Color mossGreen = Color(0xFF456B5B);
 }
+
+/// Backward-compatible alias
+typedef BotanicalColors = WorkbenchColors;

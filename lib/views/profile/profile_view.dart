@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/services/shorebird_service.dart';
 import '../../core/theme/colors.dart';
 import '../../providers/providers.dart';
 import '../../widgets/apple_widgets.dart';
@@ -405,6 +406,11 @@ class ProfileView extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
+            // Over-The-Air Updates (Shorebird)
+            const AppleSectionHeader('App Updates (Shorebird OTA)'),
+            const _ShorebirdUpdateCard(),
+            const SizedBox(height: 20),
+
             // Account & Cloud Synchronization
             const AppleSectionHeader('Account & Cloud'),
             AppleGroupedCard(
@@ -502,6 +508,123 @@ class ProfileView extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ShorebirdUpdateCard extends StatelessWidget {
+  const _ShorebirdUpdateCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final shorebird = ShorebirdService.instance;
+    return ListenableBuilder(
+      listenable: shorebird,
+      builder: (context, _) {
+        final isAvailable = shorebird.isShorebirdAvailable;
+        final currentPatch = shorebird.currentPatchNumber;
+        final status = shorebird.status;
+
+        final String patchLabel = currentPatch != null ? 'Patch #$currentPatch' : 'Base Release (v1.3.0+4)';
+        String statusDescription = 'Automatic Over-The-Air code patches';
+
+        Widget? actionWidget;
+
+        switch (status) {
+          case UpdateStatusState.checking:
+            actionWidget = const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            );
+            statusDescription = 'Checking Shorebird servers...';
+            break;
+          case UpdateStatusState.downloading:
+            actionWidget = const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            );
+            statusDescription = 'Downloading patch in background...';
+            break;
+          case UpdateStatusState.updateAvailable:
+            actionWidget = CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              color: BotanicalColors.lightSuccess,
+              borderRadius: BorderRadius.circular(12),
+              onPressed: () => shorebird.downloadPatch(),
+              child: const Text('Download Patch', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+            );
+            statusDescription = 'New patch ready to install!';
+            break;
+          case UpdateStatusState.readyToRestart:
+            actionWidget = const Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green, size: 22);
+            statusDescription = 'Patch installed! Restart app to apply.';
+            break;
+          case UpdateStatusState.upToDate:
+            actionWidget = CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => shorebird.checkManually(),
+              child: const Text('Check Again', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            );
+            statusDescription = 'App is up to date!';
+            break;
+          case UpdateStatusState.error:
+            actionWidget = CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => shorebird.checkManually(),
+              child: const Text('Retry', style: TextStyle(fontSize: 13, color: BotanicalColors.alertRed)),
+            );
+            statusDescription = shorebird.errorMessage ?? 'Update check failed';
+            break;
+          case UpdateStatusState.idle:
+          default:
+            actionWidget = CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => shorebird.checkManually(),
+              child: const Text('Check for Updates', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            );
+            statusDescription = isAvailable
+                ? 'Check for latest OTA patch'
+                : 'Active in release builds • Patches push without APK redownload';
+            break;
+        }
+
+        return AppleGroupedCard(
+          children: [
+            AppleListTile(
+              icon: CupertinoIcons.arrow_down_circle_fill,
+              iconColor: BotanicalColors.lightSuccess,
+              title: Row(
+                children: [
+                  const Text('OTA Code Push', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: (isAvailable ? Colors.green : Colors.blueGrey).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      patchLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isAvailable ? Colors.green.shade800 : Colors.blueGrey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              subtitle: Text(
+                statusDescription,
+                style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+              ),
+              trailing: actionWidget,
+            ),
+          ],
+        );
+      },
     );
   }
 }

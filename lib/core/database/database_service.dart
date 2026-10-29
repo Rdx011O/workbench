@@ -33,7 +33,17 @@ class DatabaseService {
     }
 
     final docsDir = await getApplicationDocumentsDirectory();
-    final dbPath = join(docsDir.path, 'botanical_planner.db');
+    final legacyDbPath = join(docsDir.path, 'botanical_planner.db');
+    final dbPath = join(docsDir.path, 'workbench.db');
+
+    // Smooth migration from legacy botanical_planner.db to workbench.db
+    final legacyFile = File(legacyDbPath);
+    final newFile = File(dbPath);
+    if (await legacyFile.exists() && !await newFile.exists()) {
+      try {
+        await legacyFile.copy(dbPath);
+      } catch (_) {}
+    }
 
     return await openDatabase(
       dbPath,

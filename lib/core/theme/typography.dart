@@ -5,7 +5,7 @@ import 'colors.dart';
 /// Typography aligned with Queue's design system:
 /// Plus Jakarta Sans for functional interface text,
 /// and Lora selectively for dates and journal headings.
-class BotanicalTypography {
+class WorkbenchTypography {
   static TextTheme createTextTheme({required bool isDark}) {
     final primaryTextColor = isDark ? BotanicalColors.darkTextPrimary : BotanicalColors.lightTextPrimary;
     final secondaryTextColor = isDark ? BotanicalColors.darkTextSecondary : BotanicalColors.lightTextSecondary;
@@ -142,3 +142,6 @@ class BotanicalTypography {
     );
   }
 }
+
+/// Backward-compatible alias
+typedef BotanicalTypography = WorkbenchTypography;

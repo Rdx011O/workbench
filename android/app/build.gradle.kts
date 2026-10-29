@@ -26,6 +26,9 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
     }
 }
@@ -43,3 +46,5 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+

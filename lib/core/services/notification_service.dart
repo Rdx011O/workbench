@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../database/database_service.dart';
@@ -102,8 +101,12 @@ class NotificationService {
 
       // Initialize timezone data
       tz.initializeTimeZones();
-      final locationName = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(locationName));
+      try {
+        final timeZoneName = DateTime.now().timeZoneName;
+        if (tz.timeZoneDatabase.locations.containsKey(timeZoneName)) {
+          tz.setLocalLocation(tz.getLocation(timeZoneName));
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('Notification initialization fallback: $e');
       _isInitialized = false;
@@ -258,6 +261,8 @@ class NotificationService {
         tz.TZDateTime.from(scheduledTime, tz.local),
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
       debugPrint('Scheduled notification "$title" for $scheduledTime');
