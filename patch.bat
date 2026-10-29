@@ -20,7 +20,7 @@ git push origin main
 
 echo.
 echo [3/3] Deploying instant patch via Shorebird...
-shorebird patch android
+shorebird patch android --allow-asset-diffs
 
 echo.
 echo ===================================================
